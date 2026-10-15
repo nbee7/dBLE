@@ -32,6 +32,9 @@ class ScannerViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            scanController.scanConfig.collect { config -> updateState { copy(scanConfig = config) } }
+        }
+        viewModelScope.launch {
             scanController.scanState.collect { state ->
                 updateState {
                     copy(
@@ -58,6 +61,12 @@ class ScannerViewModel @Inject constructor(
             is Intent.MinRssiToggled -> {
                 updateState { copy(minRssiEnabled = intent.enabled) }
                 refreshDevices()
+            }
+            Intent.SettingsClicked -> updateState { copy(showSettings = true) }
+            Intent.SettingsDismissed -> updateState { copy(showSettings = false) }
+            is Intent.ScanConfigApplied -> {
+                scanController.applyScanConfig(intent.config)
+                updateState { copy(showSettings = false) }
             }
             is Intent.DeviceClicked -> {
                 Timber.d("[NAV][TO] mac=%s", intent.mac)

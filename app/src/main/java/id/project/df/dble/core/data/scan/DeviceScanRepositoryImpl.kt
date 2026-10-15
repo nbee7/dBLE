@@ -28,6 +28,7 @@ class DeviceScanRepositoryImpl @Inject constructor(
     private val source: BleScannerSource,
     @ApplicationScope private val scope: CoroutineScope,
     private val time: TimeProvider,
+    private val configStore: ScanConfigStore,
 ) : DeviceScanRepository {
 
     private val _devices = MutableStateFlow<List<TrackedDevice>>(emptyList())
@@ -62,7 +63,7 @@ class DeviceScanRepositoryImpl @Inject constructor(
             }
         }
         try {
-            source.scan()
+            source.scan(configStore.config.value)
                 .onEach { onAdvertise(it) }
                 .catch { t ->
                     Timber.w(t, "[SCAN][FAIL] code=%d", (t as? BleScanException)?.code ?: -1)

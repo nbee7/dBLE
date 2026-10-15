@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -34,6 +35,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -44,6 +46,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.platform.LocalContext
 import id.project.df.dble.core.model.isStale
+import id.project.df.dble.core.model.ScanConfig
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -103,6 +106,9 @@ fun ScannerScreen(
         onStopScan = { viewModel.sendIntent(Intent.StopScanClicked) },
         onDeviceClick = { viewModel.sendIntent(Intent.DeviceClicked(it)) },
         onBannerClick = { context.openSettingsFor(it) },
+        onSettingsClick = { viewModel.sendIntent(Intent.SettingsClicked) },
+        onSettingsDismiss = { viewModel.sendIntent(Intent.SettingsDismissed) },
+        onScanConfigApply = { viewModel.sendIntent(Intent.ScanConfigApplied(it)) },
     )
 }
 
@@ -117,6 +123,9 @@ fun ScannerContent(
     onStopScan: () -> Unit,
     onDeviceClick: (String) -> Unit,
     onBannerClick: (StopReason) -> Unit,
+    onSettingsClick: () -> Unit,
+    onSettingsDismiss: () -> Unit,
+    onScanConfigApply: (ScanConfig) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val fabY = maxHeight * 2f / 3f
@@ -138,17 +147,32 @@ fun ScannerContent(
                     )
                 }
             }
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = onQueryChange,
-                singleLine = true,
-                shape = CircleShape,
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                placeholder = { Text("Cari nama / MAC…") },
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 6.dp),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = state.query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    shape = CircleShape,
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    placeholder = { Text("Cari nama / MAC…") },
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onSettingsClick) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Pengaturan pemindaian")
+                }
+            }
+            if (state.showSettings) {
+                ScanSettingsDialog(
+                    config = state.scanConfig,
+                    onApply = onScanConfigApply,
+                    onDismiss = onSettingsDismiss,
+                )
+            }
             FilterChipRow(
                 state = state,
                 onFilterFieldChange = onFilterFieldChange,
@@ -364,6 +388,9 @@ private fun ScannerContentLightPreview() {
             onStopScan = {},
             onDeviceClick = {},
             onBannerClick = {},
+            onSettingsClick = {},
+            onSettingsDismiss = {},
+            onScanConfigApply = {},
         )
     }
 }
@@ -382,6 +409,9 @@ private fun ScannerContentDarkPreview() {
             onStopScan = {},
             onDeviceClick = {},
             onBannerClick = {},
+            onSettingsClick = {},
+            onSettingsDismiss = {},
+            onScanConfigApply = {},
         )
     }
 }

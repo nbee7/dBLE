@@ -5,6 +5,8 @@ import id.project.df.dble.core.data.history.DeviceHistoryRepository
 import id.project.df.dble.core.data.permission.BlePermissionChecker
 import id.project.df.dble.core.data.permission.PermissionCheck
 import id.project.df.dble.core.model.ProximityZone
+import id.project.df.dble.core.model.ScanConfig
+import id.project.df.dble.core.model.ScanMode
 import id.project.df.dble.core.model.TrackedDevice
 import io.mockk.coVerify
 import io.mockk.every
@@ -29,6 +31,7 @@ class ScanControllerTest {
         val scan = mockk<DeviceScanRepository>()
         val history = mockk<DeviceHistoryRepository>(relaxUnitFun = true)
         val checker = mockk<BlePermissionChecker>()
+        val store = FakeScanConfigStore()
 
         init {
             every { scan.devices } returns devices
@@ -39,7 +42,7 @@ class ScanControllerTest {
         }
 
         // init dulu, baru controller — konstruktornya membaca scanState
-        val controller = ScanController(scan, history, checker, scope)
+        val controller = ScanController(scan, history, checker, store, scope)
 
         fun izinKurang() = every {
             checker.check()
@@ -192,6 +195,46 @@ class ScanControllerTest {
 
         verify(exactly = 1) { f.scan.startScan() }
         assertEquals(ScanState.Stopped(StopReason.BLUETOOTH_OFF), f.state.value)
+    }
+
+    @Test
+    fun given_Scanning_when_ApplyConfigBerbeda_then_SaveDanRestart() = runTest {
+        val f = Fixture(backgroundScope)
+        f.controller.requestScan()
+        runCurrent()
+        val baru = ScanConfig(ScanMode.HEMAT, extended = true)
+
+        f.controller.applyScanConfig(baru)
+        runCurrent()
+
+        assertEquals(listOf(baru), f.store.saved)
+        verify(exactly = 2) { f.scan.startScan() }
+        assertEquals(ScanState.Scanning, f.state.value)
+    }
+
+    @Test
+    fun given_Scanning_when_ApplyConfigSama_then_TidakRestart() = runTest {
+        val f = Fixture(backgroundScope)
+        f.controller.requestScan()
+        runCurrent()
+
+        f.controller.applyScanConfig(ScanConfig())
+        runCurrent()
+
+        assertTrue(f.store.saved.isEmpty())
+        verify(exactly = 1) { f.scan.startScan() }
+    }
+
+    @Test
+    fun given_Idle_when_ApplyConfig_then_SaveTanpaStart() = runTest {
+        val f = Fixture(backgroundScope)
+        val baru = ScanConfig(ScanMode.SEIMBANG, extended = false)
+
+        f.controller.applyScanConfig(baru)
+        runCurrent()
+
+        assertEquals(listOf(baru), f.store.saved)
+        verify(exactly = 0) { f.scan.startScan() }
     }
 
     @Test

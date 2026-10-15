@@ -38,8 +38,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -67,6 +69,7 @@ private val ChartLine = Color(0xFF3B82F6)
 private const val ChartMinRssi = -90f
 private const val ChartMaxRssi = -30f
 private const val ChartWindowMs = 60_000L
+private val YAxisWidth = 36.dp
 private val BarZones = listOf(
     ProximityZone.SANGAT_LEMAH,
     ProximityZone.LEMAH,
@@ -259,22 +262,53 @@ fun EstimateCard(state: State, modifier: Modifier = Modifier) {
 @Composable
 fun RssiLineChart(points: ImmutableList<RssiPoint>, modifier: Modifier = Modifier) {
     val gridColor = MaterialTheme.colorScheme.outlineVariant
-    Canvas(
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        listOf(-30f, -50f, -70f, -90f).forEach { level ->
-            val y = yFor(level, size.height)
-            drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val textMeasurer = rememberTextMeasurer()
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Kekuatan sinyal (dBm)",
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                text = "${ChartWindowMs / 1000} detik terakhir",
+                style = labelStyle,
+            )
         }
-        if (points.size < 2) return@Canvas
-        val tStart = points.last().tMillis - ChartWindowMs
-        val path = Path()
-        points.forEachIndexed { index, point ->
-            val x = ((point.tMillis - tStart).toFloat() / ChartWindowMs).coerceIn(0f, 1f) * size.width
-            val y = yFor(point.rssi.toFloat(), size.height)
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        Canvas(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            val gutter = YAxisWidth.toPx()
+            val plotWidth = size.width - gutter
+            listOf(-30f, -50f, -70f, -90f).forEach { level ->
+                val y = yFor(level, size.height)
+                drawLine(gridColor, Offset(gutter, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
+                val label = textMeasurer.measure("−${-level.toInt()}", labelStyle)
+                // Label di tepi atas/bawah digeser masuk agar tidak terpotong.
+                val top = (y - label.size.height / 2f).coerceIn(0f, size.height - label.size.height)
+                drawText(label, topLeft = Offset(gutter - label.size.width - 6.dp.toPx(), top))
+            }
+            if (points.size < 2) return@Canvas
+            val tStart = points.last().tMillis - ChartWindowMs
+            val path = Path()
+            points.forEachIndexed { index, point ->
+                val x = gutter + ((point.tMillis - tStart).toFloat() / ChartWindowMs).coerceIn(0f, 1f) * plotWidth
+                val y = yFor(point.rssi.toFloat(), size.height)
+                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            drawPath(path, ChartLine, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
         }
-        drawPath(path, ChartLine, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = YAxisWidth),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(text = "−${ChartWindowMs / 1000} dtk", style = labelStyle)
+            Text(text = "sekarang", style = labelStyle)
+        }
     }
 }
 
