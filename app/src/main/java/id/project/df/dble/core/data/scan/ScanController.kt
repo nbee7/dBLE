@@ -6,6 +6,7 @@ import id.project.df.dble.core.data.di.ApplicationScope
 import id.project.df.dble.core.data.history.DeviceHistoryRepository
 import id.project.df.dble.core.data.permission.BlePermissionChecker
 import id.project.df.dble.core.data.permission.PermissionCheck
+import id.project.df.dble.core.model.ScanConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
@@ -21,9 +22,11 @@ class ScanController @Inject constructor(
     private val scan: DeviceScanRepository,
     private val history: DeviceHistoryRepository,
     private val checker: BlePermissionChecker,
+    private val configStore: ScanConfigStore,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     val scanState: StateFlow<ScanState> = scan.scanState
+    val scanConfig: StateFlow<ScanConfig> = configStore.config
 
     private var scanDesired = false
     private var recordJob: Job? = null
@@ -44,6 +47,22 @@ class ScanController @Inject constructor(
             Timber.d("[PERM][LOC_OFF]")
             result
         }
+        PermissionCheck.BluetoothOff -> {
+            Timber.d("[BT][OFF]")
+            result
+        }
+    }
+
+    fun applyScanConfig(config: ScanConfig) {
+        if (configStore.config.value == config) return
+        configStore.save(config)
+        if (scanState.value != ScanState.Scanning) return
+        Timber.d("[SCAN][RESTART] reason=CONFIG")
+        cancelRecordCollector()
+        scan.stopScan(StopReason.USER_STOPPED)
+        flush()
+        scan.startScan()
+        startRecordCollector()
     }
 
     fun stopScanByUser() {
@@ -80,11 +99,18 @@ class ScanController @Inject constructor(
                 Timber.d("[SCAN][STOP] reason=LOCATION_OFF")
                 scan.stopScan(StopReason.LOCATION_OFF)
             }
+            PermissionCheck.BluetoothOff -> {
+                Timber.d("[BT][OFF]")
+                scanDesired = false
+                scan.stopScan(StopReason.BLUETOOTH_OFF)
+            }
         }
     }
 
     fun onBluetoothStateChanged(enabled: Boolean) {
-        if (enabled || scanState.value != ScanState.Scanning) return
+        if (enabled) return
+        scanDesired = false
+        if (scanState.value != ScanState.Scanning) return
         Timber.d("[BT][OFF]")
         cancelRecordCollector()
         scan.stopScan(StopReason.BLUETOOTH_OFF)

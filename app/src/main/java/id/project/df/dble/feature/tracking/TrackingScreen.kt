@@ -3,6 +3,7 @@ package id.project.df.dble.feature.tracking
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,17 +27,21 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -50,6 +55,10 @@ import id.project.df.dble.core.designsystem.color
 import id.project.df.dble.core.model.ProximityZone
 import id.project.df.dble.core.model.beepIntervalMsFor
 import id.project.df.dble.core.model.formatDistance
+import id.project.df.dble.core.data.scan.StopReason
+import id.project.df.dble.core.ui.hasSettingsAction
+import id.project.df.dble.core.ui.openSettingsFor
+import id.project.df.dble.core.ui.rememberPermissionRequester
 import id.project.df.dble.feature.scanner.bannerText
 import id.project.df.dble.ui.theme.DBLETheme
 import kotlinx.collections.immutable.ImmutableList
@@ -60,6 +69,7 @@ private val ChartLine = Color(0xFF3B82F6)
 private const val ChartMinRssi = -90f
 private const val ChartMaxRssi = -30f
 private const val ChartWindowMs = 60_000L
+private val YAxisWidth = 36.dp
 private val BarZones = listOf(
     ProximityZone.SANGAT_LEMAH,
     ProximityZone.LEMAH,
@@ -77,28 +87,41 @@ fun TrackingScreen(
     ),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val requestPermissions = rememberPermissionRequester { viewModel.sendIntent(Intent.PermissionsGranted) }
+    LifecycleResumeEffect(Unit) {
+        viewModel.sendIntent(Intent.ScreenResumed)
+        onPauseOrDispose { }
+    }
     viewModel.effect.collectAsEffect { effect ->
         when (effect) {
             Effect.NavigateBack -> onBack()
-            // Wiring izin runtime + settings lokasi: Task 9.
-            is Effect.RequestPermissions -> Unit
-            Effect.OpenLocationSettings -> Unit
+            is Effect.RequestPermissions -> requestPermissions(effect.permissions)
         }
     }
     val beeper = remember { AndroidProximityBeeper() }
     DisposableEffect(beeper) { onDispose { beeper.release() } }
     BeepEffect(zone = state.zone, isLost = state.isLost, beeper = beeper)
-    TrackingContent(state = state, onBack = { viewModel.sendIntent(Intent.BackClicked) })
+    TrackingContent(
+        state = state,
+        onBack = { viewModel.sendIntent(Intent.BackClicked) },
+        onBannerClick = { context.openSettingsFor(it) },
+    )
 }
 
 @Composable
-fun TrackingContent(state: State, onBack: () -> Unit) {
+fun TrackingContent(state: State, onBack: () -> Unit, onBannerClick: (StopReason) -> Unit) {
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         TrackingHeader(name = state.name, mac = state.mac, onBack = onBack)
-        state.banner?.let { reason -> ScanBanner(bannerText(reason)) }
+        state.banner?.let { reason ->
+            ScanBanner(
+                text = bannerText(reason),
+                modifier = Modifier.clickable(enabled = reason.hasSettingsAction()) { onBannerClick(reason) },
+            )
+        }
         AnimatedVisibility(visible = state.isLost) { LostBanner() }
         Column(
             modifier = Modifier
@@ -145,11 +168,11 @@ private fun TrackingHeader(name: String?, mac: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun ScanBanner(text: String) {
+private fun ScanBanner(text: String, modifier: Modifier = Modifier) {
     Surface(
         color = MaterialTheme.colorScheme.errorContainer,
         contentColor = MaterialTheme.colorScheme.onErrorContainer,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
     ) {
         Text(
             text = text,
@@ -239,22 +262,53 @@ fun EstimateCard(state: State, modifier: Modifier = Modifier) {
 @Composable
 fun RssiLineChart(points: ImmutableList<RssiPoint>, modifier: Modifier = Modifier) {
     val gridColor = MaterialTheme.colorScheme.outlineVariant
-    Canvas(
-        modifier = modifier.fillMaxWidth(),
-    ) {
-        listOf(-30f, -50f, -70f, -90f).forEach { level ->
-            val y = yFor(level, size.height)
-            drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
+    val labelStyle = MaterialTheme.typography.labelSmall.copy(color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val textMeasurer = rememberTextMeasurer()
+    Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "Kekuatan sinyal (dBm)",
+                style = MaterialTheme.typography.labelLarge,
+            )
+            Text(
+                text = "${ChartWindowMs / 1000} detik terakhir",
+                style = labelStyle,
+            )
         }
-        if (points.size < 2) return@Canvas
-        val tStart = points.last().tMillis - ChartWindowMs
-        val path = Path()
-        points.forEachIndexed { index, point ->
-            val x = ((point.tMillis - tStart).toFloat() / ChartWindowMs).coerceIn(0f, 1f) * size.width
-            val y = yFor(point.rssi.toFloat(), size.height)
-            if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+        Canvas(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            val gutter = YAxisWidth.toPx()
+            val plotWidth = size.width - gutter
+            listOf(-30f, -50f, -70f, -90f).forEach { level ->
+                val y = yFor(level, size.height)
+                drawLine(gridColor, Offset(gutter, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
+                val label = textMeasurer.measure("−${-level.toInt()}", labelStyle)
+                // Label di tepi atas/bawah digeser masuk agar tidak terpotong.
+                val top = (y - label.size.height / 2f).coerceIn(0f, size.height - label.size.height)
+                drawText(label, topLeft = Offset(gutter - label.size.width - 6.dp.toPx(), top))
+            }
+            if (points.size < 2) return@Canvas
+            val tStart = points.last().tMillis - ChartWindowMs
+            val path = Path()
+            points.forEachIndexed { index, point ->
+                val x = gutter + ((point.tMillis - tStart).toFloat() / ChartWindowMs).coerceIn(0f, 1f) * plotWidth
+                val y = yFor(point.rssi.toFloat(), size.height)
+                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            }
+            drawPath(path, ChartLine, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
         }
-        drawPath(path, ChartLine, style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = YAxisWidth),
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(text = "−${ChartWindowMs / 1000} dtk", style = labelStyle)
+            Text(text = "sekarang", style = labelStyle)
+        }
     }
 }
 
@@ -304,11 +358,11 @@ private val PreviewState = State(
 @Preview(name = "Light", showBackground = true)
 @Composable
 private fun TrackingContentLightPreview() {
-    DBLETheme(darkTheme = false) { TrackingContent(PreviewState, onBack = {}) }
+    DBLETheme(darkTheme = false) { TrackingContent(PreviewState, onBack = {}, onBannerClick = {}) }
 }
 
 @Preview(name = "Dark", showBackground = true)
 @Composable
 private fun TrackingContentDarkPreview() {
-    DBLETheme(darkTheme = true) { TrackingContent(PreviewState.copy(isLost = true), onBack = {}) }
+    DBLETheme(darkTheme = true) { TrackingContent(PreviewState.copy(isLost = true), onBack = {}, onBannerClick = {}) }
 }

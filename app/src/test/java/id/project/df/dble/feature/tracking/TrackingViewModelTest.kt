@@ -141,6 +141,58 @@ class TrackingViewModelTest {
         assertEquals(StopReason.LOCATION_OFF, vm.uiState.value.banner)
     }
 
+    @Test
+    fun given_IzinDiberikan_when_PermissionsGranted_then_RequestScanUlang() = runTest {
+        scanState.value = ScanState.Idle
+        every { scanController.requestScan() } returns PermissionCheck.Missing(listOf("p1"))
+        val vm = viewModelWithoutDefaultScan()
+        every { scanController.requestScan() } answers {
+            scanState.value = ScanState.Scanning
+            PermissionCheck.Granted
+        }
+
+        vm.sendIntent(Intent.PermissionsGranted)
+
+        verify(exactly = 2) { scanController.requestScan() }
+        assertEquals(null, vm.uiState.value.banner)
+    }
+
+    @Test
+    fun given_LocationOff_when_Init_then_TidakLangsungBukaSetelan() = runTest {
+        scanState.value = ScanState.Idle
+        every { scanController.requestScan() } returns PermissionCheck.LocationServiceOff
+        val vm = viewModelWithoutDefaultScan()
+
+        vm.effect.test {
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun given_BluetoothOff_when_Init_then_BannerBluetoothOff() = runTest {
+        scanState.value = ScanState.Idle
+        every { scanController.requestScan() } returns PermissionCheck.BluetoothOff
+        val vm = viewModelWithoutDefaultScan()
+
+        assertEquals(StopReason.BLUETOOTH_OFF, vm.uiState.value.banner)
+    }
+
+    @Test
+    fun given_BannerLocationOffLaluDiperbaiki_when_ScreenResumed_then_ScanMenyalaBannerHilang() = runTest {
+        scanState.value = ScanState.Idle
+        every { scanController.requestScan() } returns PermissionCheck.LocationServiceOff
+        val vm = viewModelWithoutDefaultScan()
+        every { scanController.requestScan() } answers {
+            scanState.value = ScanState.Scanning
+            PermissionCheck.Granted
+        }
+
+        vm.sendIntent(Intent.ScreenResumed)
+
+        assertEquals(null, vm.uiState.value.banner)
+        verify(exactly = 2) { scanController.requestScan() }
+    }
+
     private fun viewModelWithoutDefaultScan(): TrackingViewModel {
         every { observeTarget(mac) } returns targets
         every { scanController.scanState } returns scanState

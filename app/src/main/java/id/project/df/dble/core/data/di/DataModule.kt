@@ -8,6 +8,8 @@ import id.project.df.dble.core.data.permission.AndroidBlePermissionChecker
 import id.project.df.dble.core.data.permission.BlePermissionChecker
 import id.project.df.dble.core.data.scan.DeviceScanRepository
 import id.project.df.dble.core.data.scan.DeviceScanRepositoryImpl
+import id.project.df.dble.core.data.scan.ScanConfigStore
+import id.project.df.dble.core.data.scan.SharedPrefsScanConfigStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -34,6 +36,10 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindDeviceScanRepository(impl: DeviceScanRepositoryImpl): DeviceScanRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindScanConfigStore(impl: SharedPrefsScanConfigStore): ScanConfigStore
 
     @Binds
     @Singleton

@@ -5,6 +5,8 @@ import id.project.df.dble.core.data.ble.BleScanException
 import id.project.df.dble.core.data.ble.BleScannerSource
 import id.project.df.dble.core.common.time.TimeProvider
 import id.project.df.dble.core.model.BleAdvertise
+import id.project.df.dble.core.model.ScanConfig
+import id.project.df.dble.core.model.ScanMode
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
@@ -22,9 +24,12 @@ private class FakeSource(
 ) : BleScannerSource {
     var collections = 0
         private set
+    var lastConfig: ScanConfig? = null
+        private set
 
-    override fun scan(): Flow<BleAdvertise> = flow {
+    override fun scan(config: ScanConfig): Flow<BleAdvertise> = flow {
         collections++
+        lastConfig = config
         script()
     }
 }
@@ -37,9 +42,32 @@ private val FixedTime = object : TimeProvider {
 class DeviceScanRepositoryTest {
 
     @Test
+    fun given_ConfigTersimpan_when_StartScan_then_SourceMenerimaConfig() = runTest {
+        val source = FakeSource { awaitCancellation() }
+        val config = ScanConfig(ScanMode.SEIMBANG, extended = true)
+        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore(config))
+
+        repo.startScan()
+        runCurrent()
+
+        assertEquals(config, source.lastConfig)
+    }
+
+    @Test
+    fun given_SecurityException_when_Scan_then_StopPermissionRevoked() = runTest {
+        val source = FakeSource { throw SecurityException("izin dicabut") }
+        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore())
+
+        repo.startScan()
+        runCurrent()
+
+        assertEquals(ScanState.Stopped(StopReason.PERMISSION_REVOKED), repo.scanState.value)
+    }
+
+    @Test
     fun given_StartDuaKali_when_StartScan_then_TetapSatuCollector() = runTest {
         val source = FakeSource { awaitCancellation() }
-        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime)
+        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore())
 
         repo.startScan()
         runCurrent()
@@ -56,7 +84,7 @@ class DeviceScanRepositoryTest {
             emit(BleAdvertise(mac = "AA:BB:CC:DD:EE:02", name = "Tag B", rssi = -60))
             throw BleScanException(ScanCallback.SCAN_FAILED_SCANNING_TOO_FREQUENTLY)
         }
-        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime)
+        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore())
 
         repo.startScan()
         runCurrent()
@@ -78,7 +106,7 @@ class DeviceScanRepositoryTest {
             emit(BleAdvertise(mac = "AA:BB:CC:DD:EE:03", name = "Tag C", rssi = -60))
             awaitCancellation()
         }
-        val repo = DeviceScanRepositoryImpl(source, backgroundScope, time)
+        val repo = DeviceScanRepositoryImpl(source, backgroundScope, time, FakeScanConfigStore())
 
         repo.startScan()
         runCurrent()

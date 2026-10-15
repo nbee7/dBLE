@@ -8,6 +8,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -26,6 +27,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,6 +35,7 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
@@ -41,7 +44,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import id.project.df.dble.core.model.isStale
+import id.project.df.dble.core.model.ScanConfig
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +66,10 @@ import id.project.df.dble.core.domain.FilterField
 import id.project.df.dble.core.model.ProximityZone
 import id.project.df.dble.core.model.TrackedDevice
 import id.project.df.dble.core.model.formatDistance
+import id.project.df.dble.core.ui.openLocationSettings
+import id.project.df.dble.core.ui.hasSettingsAction
+import id.project.df.dble.core.ui.openSettingsFor
+import id.project.df.dble.core.ui.rememberPermissionRequester
 import id.project.df.dble.ui.theme.DBLETheme
 import kotlin.math.abs
 import kotlinx.collections.immutable.ImmutableList
@@ -72,6 +81,8 @@ fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val requestPermissions = rememberPermissionRequester { viewModel.sendIntent(Intent.StartScanClicked) }
     val nowMillis by produceState(System.currentTimeMillis()) {
         while (true) {
             delay(1_000)
@@ -81,8 +92,8 @@ fun ScannerScreen(
     viewModel.effect.collectAsEffect { effect ->
         when (effect) {
             is Effect.NavigateToTracking -> onDeviceClick(effect.mac)
-            is Effect.RequestPermissions -> Unit
-            Effect.OpenLocationSettings -> Unit
+            is Effect.RequestPermissions -> requestPermissions(effect.permissions)
+            Effect.OpenLocationSettings -> context.openLocationSettings()
         }
     }
     ScannerContent(
@@ -94,6 +105,10 @@ fun ScannerScreen(
         onStartScan = { viewModel.sendIntent(Intent.StartScanClicked) },
         onStopScan = { viewModel.sendIntent(Intent.StopScanClicked) },
         onDeviceClick = { viewModel.sendIntent(Intent.DeviceClicked(it)) },
+        onBannerClick = { context.openSettingsFor(it) },
+        onSettingsClick = { viewModel.sendIntent(Intent.SettingsClicked) },
+        onSettingsDismiss = { viewModel.sendIntent(Intent.SettingsDismissed) },
+        onScanConfigApply = { viewModel.sendIntent(Intent.ScanConfigApplied(it)) },
     )
 }
 
@@ -107,6 +122,10 @@ fun ScannerContent(
     onStartScan: () -> Unit,
     onStopScan: () -> Unit,
     onDeviceClick: (String) -> Unit,
+    onBannerClick: (StopReason) -> Unit,
+    onSettingsClick: () -> Unit,
+    onSettingsDismiss: () -> Unit,
+    onScanConfigApply: (ScanConfig) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val fabY = maxHeight * 2f / 3f
@@ -118,6 +137,7 @@ fun ScannerContent(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable(enabled = reason.hasSettingsAction()) { onBannerClick(reason) }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 ) {
                     Text(
@@ -127,17 +147,32 @@ fun ScannerContent(
                     )
                 }
             }
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = onQueryChange,
-                singleLine = true,
-                shape = CircleShape,
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                placeholder = { Text("Cari nama / MAC…") },
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 12.dp, vertical = 6.dp),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = state.query,
+                    onValueChange = onQueryChange,
+                    singleLine = true,
+                    shape = CircleShape,
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    placeholder = { Text("Cari nama / MAC…") },
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = onSettingsClick) {
+                    Icon(Icons.Filled.Settings, contentDescription = "Pengaturan pemindaian")
+                }
+            }
+            if (state.showSettings) {
+                ScanSettingsDialog(
+                    config = state.scanConfig,
+                    onApply = onScanConfigApply,
+                    onDismiss = onSettingsDismiss,
+                )
+            }
             FilterChipRow(
                 state = state,
                 onFilterFieldChange = onFilterFieldChange,
@@ -323,9 +358,9 @@ private fun zoneLabel(zone: ProximityZone): String = when (zone) {
 private fun rssiText(rssi: Int): String = "−${abs(rssi)} dBm"
 
 internal fun bannerText(reason: StopReason): String = when (reason) {
-    StopReason.BLUETOOTH_OFF -> "Bluetooth dimatikan — nyalakan Bluetooth untuk memindai"
-    StopReason.PERMISSION_REVOKED -> "Izin Bluetooth tidak aktif — berikan izin untuk memindai"
-    StopReason.LOCATION_OFF -> "Layanan lokasi mati — nyalakan lokasi untuk memindai"
+    StopReason.BLUETOOTH_OFF -> "Bluetooth dimatikan — ketuk untuk membuka pengaturan Bluetooth"
+    StopReason.PERMISSION_REVOKED -> "Izin pemindaian belum diberikan — ketuk untuk membuka pengaturan aplikasi"
+    StopReason.LOCATION_OFF -> "Layanan lokasi mati — ketuk untuk membuka pengaturan lokasi"
     StopReason.SCAN_FAILED_ALREADY_STARTED -> "Pemindaian sudah berjalan"
     StopReason.SCAN_FAILED_REGISTRATION -> "Pemindaian gagal didaftarkan — coba lagi"
     StopReason.SCAN_FAILED_TOO_FREQUENTLY -> "Tunggu beberapa detik lalu coba lagi"
@@ -352,6 +387,10 @@ private fun ScannerContentLightPreview() {
             onStartScan = {},
             onStopScan = {},
             onDeviceClick = {},
+            onBannerClick = {},
+            onSettingsClick = {},
+            onSettingsDismiss = {},
+            onScanConfigApply = {},
         )
     }
 }
@@ -369,6 +408,10 @@ private fun ScannerContentDarkPreview() {
             onStartScan = {},
             onStopScan = {},
             onDeviceClick = {},
+            onBannerClick = {},
+            onSettingsClick = {},
+            onSettingsDismiss = {},
+            onScanConfigApply = {},
         )
     }
 }

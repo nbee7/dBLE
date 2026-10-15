@@ -32,6 +32,9 @@ class ScannerViewModel @Inject constructor(
             }
         }
         viewModelScope.launch {
+            scanController.scanConfig.collect { config -> updateState { copy(scanConfig = config) } }
+        }
+        viewModelScope.launch {
             scanController.scanState.collect { state ->
                 updateState {
                     copy(
@@ -59,6 +62,12 @@ class ScannerViewModel @Inject constructor(
                 updateState { copy(minRssiEnabled = intent.enabled) }
                 refreshDevices()
             }
+            Intent.SettingsClicked -> updateState { copy(showSettings = true) }
+            Intent.SettingsDismissed -> updateState { copy(showSettings = false) }
+            is Intent.ScanConfigApplied -> {
+                scanController.applyScanConfig(intent.config)
+                updateState { copy(showSettings = false) }
+            }
             is Intent.DeviceClicked -> {
                 Timber.d("[NAV][TO] mac=%s", intent.mac)
                 sendEffect(Effect.NavigateToTracking(intent.mac))
@@ -69,7 +78,11 @@ class ScannerViewModel @Inject constructor(
     private fun startScan() {
         when (val check = scanController.requestScan()) {
             PermissionCheck.Granted -> Unit
-            is PermissionCheck.Missing -> sendEffect(Effect.RequestPermissions(check.permissions))
+            is PermissionCheck.Missing -> {
+                updateState { copy(banner = StopReason.PERMISSION_REVOKED) }
+                sendEffect(Effect.RequestPermissions(check.permissions))
+            }
+            PermissionCheck.BluetoothOff -> updateState { copy(banner = StopReason.BLUETOOTH_OFF) }
             PermissionCheck.LocationServiceOff -> {
                 updateState { copy(banner = StopReason.LOCATION_OFF) }
                 sendEffect(Effect.OpenLocationSettings)
