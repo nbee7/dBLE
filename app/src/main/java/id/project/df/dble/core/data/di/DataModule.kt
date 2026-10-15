@@ -4,6 +4,8 @@ import id.project.df.dble.core.common.time.SystemTimeProvider
 import id.project.df.dble.core.common.time.TimeProvider
 import id.project.df.dble.core.data.ble.AndroidBleScannerSource
 import id.project.df.dble.core.data.ble.BleScannerSource
+import id.project.df.dble.core.data.permission.AndroidBlePermissionChecker
+import id.project.df.dble.core.data.permission.BlePermissionChecker
 import id.project.df.dble.core.data.scan.DeviceScanRepository
 import id.project.df.dble.core.data.scan.DeviceScanRepositoryImpl
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +34,10 @@ abstract class DataModule {
     @Binds
     @Singleton
     abstract fun bindDeviceScanRepository(impl: DeviceScanRepositoryImpl): DeviceScanRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindBlePermissionChecker(impl: AndroidBlePermissionChecker): BlePermissionChecker
 
     @Binds
     abstract fun bindTimeProvider(impl: SystemTimeProvider): TimeProvider
