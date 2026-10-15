@@ -26,10 +26,11 @@ data class State(
 
 sealed interface Intent : MviIntent {
     data object BackClicked : Intent
+    data object PermissionsGranted : Intent
+    data object ScreenResumed : Intent
 }
 
 sealed interface Effect : MviEffect {
     data object NavigateBack : Effect
     data class RequestPermissions(val permissions: List<String>) : Effect
-    data object OpenLocationSettings : Effect
 }

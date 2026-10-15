@@ -8,6 +8,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -41,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.platform.LocalContext
 import id.project.df.dble.core.model.isStale
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
@@ -61,6 +63,10 @@ import id.project.df.dble.core.domain.FilterField
 import id.project.df.dble.core.model.ProximityZone
 import id.project.df.dble.core.model.TrackedDevice
 import id.project.df.dble.core.model.formatDistance
+import id.project.df.dble.core.ui.openLocationSettings
+import id.project.df.dble.core.ui.hasSettingsAction
+import id.project.df.dble.core.ui.openSettingsFor
+import id.project.df.dble.core.ui.rememberPermissionRequester
 import id.project.df.dble.ui.theme.DBLETheme
 import kotlin.math.abs
 import kotlinx.collections.immutable.ImmutableList
@@ -72,6 +78,8 @@ fun ScannerScreen(
     viewModel: ScannerViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val requestPermissions = rememberPermissionRequester { viewModel.sendIntent(Intent.StartScanClicked) }
     val nowMillis by produceState(System.currentTimeMillis()) {
         while (true) {
             delay(1_000)
@@ -81,8 +89,8 @@ fun ScannerScreen(
     viewModel.effect.collectAsEffect { effect ->
         when (effect) {
             is Effect.NavigateToTracking -> onDeviceClick(effect.mac)
-            is Effect.RequestPermissions -> Unit
-            Effect.OpenLocationSettings -> Unit
+            is Effect.RequestPermissions -> requestPermissions(effect.permissions)
+            Effect.OpenLocationSettings -> context.openLocationSettings()
         }
     }
     ScannerContent(
@@ -94,6 +102,7 @@ fun ScannerScreen(
         onStartScan = { viewModel.sendIntent(Intent.StartScanClicked) },
         onStopScan = { viewModel.sendIntent(Intent.StopScanClicked) },
         onDeviceClick = { viewModel.sendIntent(Intent.DeviceClicked(it)) },
+        onBannerClick = { context.openSettingsFor(it) },
     )
 }
 
@@ -107,6 +116,7 @@ fun ScannerContent(
     onStartScan: () -> Unit,
     onStopScan: () -> Unit,
     onDeviceClick: (String) -> Unit,
+    onBannerClick: (StopReason) -> Unit,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val fabY = maxHeight * 2f / 3f
@@ -118,6 +128,7 @@ fun ScannerContent(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
+                        .clickable(enabled = reason.hasSettingsAction()) { onBannerClick(reason) }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 ) {
                     Text(
@@ -323,9 +334,9 @@ private fun zoneLabel(zone: ProximityZone): String = when (zone) {
 private fun rssiText(rssi: Int): String = "−${abs(rssi)} dBm"
 
 internal fun bannerText(reason: StopReason): String = when (reason) {
-    StopReason.BLUETOOTH_OFF -> "Bluetooth dimatikan — nyalakan Bluetooth untuk memindai"
-    StopReason.PERMISSION_REVOKED -> "Izin Bluetooth tidak aktif — berikan izin untuk memindai"
-    StopReason.LOCATION_OFF -> "Layanan lokasi mati — nyalakan lokasi untuk memindai"
+    StopReason.BLUETOOTH_OFF -> "Bluetooth dimatikan — ketuk untuk membuka pengaturan Bluetooth"
+    StopReason.PERMISSION_REVOKED -> "Izin pemindaian belum diberikan — ketuk untuk membuka pengaturan aplikasi"
+    StopReason.LOCATION_OFF -> "Layanan lokasi mati — ketuk untuk membuka pengaturan lokasi"
     StopReason.SCAN_FAILED_ALREADY_STARTED -> "Pemindaian sudah berjalan"
     StopReason.SCAN_FAILED_REGISTRATION -> "Pemindaian gagal didaftarkan — coba lagi"
     StopReason.SCAN_FAILED_TOO_FREQUENTLY -> "Tunggu beberapa detik lalu coba lagi"
@@ -352,6 +363,7 @@ private fun ScannerContentLightPreview() {
             onStartScan = {},
             onStopScan = {},
             onDeviceClick = {},
+            onBannerClick = {},
         )
     }
 }
@@ -369,6 +381,7 @@ private fun ScannerContentDarkPreview() {
             onStartScan = {},
             onStopScan = {},
             onDeviceClick = {},
+            onBannerClick = {},
         )
     }
 }

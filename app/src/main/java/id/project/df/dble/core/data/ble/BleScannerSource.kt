@@ -34,7 +34,18 @@ class AndroidBleScannerSource @Inject constructor(
                 close(BleScanException(errorCode))
             }
         }
-        scanner.startScan(callback)
-        awaitClose { scanner.stopScan(callback) }
+        try {
+            scanner.startScan(callback)
+        } catch (e: SecurityException) {
+            close(e)
+            return@callbackFlow
+        }
+        awaitClose {
+            try {
+                scanner.stopScan(callback)
+            } catch (_: SecurityException) {
+                // Izin sudah dicabut; scan berhenti bersama proses izin, tidak ada yang perlu dibersihkan.
+            }
+        }
     }
 }

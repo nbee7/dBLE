@@ -155,6 +155,46 @@ class ScanControllerTest {
     }
 
     @Test
+    fun given_BluetoothMati_when_RequestScan_then_HasilBluetoothOffTanpaStart() = runTest {
+        val f = Fixture(backgroundScope)
+        every { f.checker.check() } returns PermissionCheck.BluetoothOff
+
+        val result = f.controller.requestScan()
+
+        assertEquals(PermissionCheck.BluetoothOff, result)
+        verify(exactly = 0) { f.scan.startScan() }
+    }
+
+    @Test
+    fun given_BluetoothMatiSaatBackground_when_ResumeSetelahBtOff_then_TidakAutoResume() = runTest {
+        val f = Fixture(backgroundScope)
+        f.controller.requestScan()
+        f.controller.onBackground()
+        runCurrent()
+
+        f.controller.onBluetoothStateChanged(false)
+        f.controller.onResume()
+        runCurrent()
+
+        verify(exactly = 1) { f.scan.startScan() }
+    }
+
+    @Test
+    fun given_BluetoothMatiSaatResume_when_Resume_then_StoppedBluetoothOff() = runTest {
+        val f = Fixture(backgroundScope)
+        f.controller.requestScan()
+        f.controller.onBackground()
+        runCurrent()
+        every { f.checker.check() } returns PermissionCheck.BluetoothOff
+
+        f.controller.onResume()
+        runCurrent()
+
+        verify(exactly = 1) { f.scan.startScan() }
+        assertEquals(ScanState.Stopped(StopReason.BLUETOOTH_OFF), f.state.value)
+    }
+
+    @Test
     fun given_Scanning_when_BluetoothMati_then_StoppedBluetoothOffDanFlush() = runTest {
         val f = Fixture(backgroundScope)
 

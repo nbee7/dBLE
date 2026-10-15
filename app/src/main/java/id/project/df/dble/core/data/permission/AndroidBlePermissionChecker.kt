@@ -1,6 +1,7 @@
 package id.project.df.dble.core.data.permission
 
 import android.Manifest
+import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.LocationManager
@@ -25,6 +26,9 @@ class AndroidBlePermissionChecker @Inject constructor(
             ContextCompat.checkSelfPermission(context, it) != PackageManager.PERMISSION_GRANTED
         }
         if (missing.isNotEmpty()) return PermissionCheck.Missing(missing)
+
+        val adapter = context.getSystemService(BluetoothManager::class.java)?.adapter
+        if (adapter == null || !adapter.isEnabled) return PermissionCheck.BluetoothOff
 
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
             val lm = context.getSystemService(LocationManager::class.java)

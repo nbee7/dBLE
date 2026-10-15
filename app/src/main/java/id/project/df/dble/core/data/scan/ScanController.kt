@@ -44,6 +44,10 @@ class ScanController @Inject constructor(
             Timber.d("[PERM][LOC_OFF]")
             result
         }
+        PermissionCheck.BluetoothOff -> {
+            Timber.d("[BT][OFF]")
+            result
+        }
     }
 
     fun stopScanByUser() {
@@ -80,11 +84,18 @@ class ScanController @Inject constructor(
                 Timber.d("[SCAN][STOP] reason=LOCATION_OFF")
                 scan.stopScan(StopReason.LOCATION_OFF)
             }
+            PermissionCheck.BluetoothOff -> {
+                Timber.d("[BT][OFF]")
+                scanDesired = false
+                scan.stopScan(StopReason.BLUETOOTH_OFF)
+            }
         }
     }
 
     fun onBluetoothStateChanged(enabled: Boolean) {
-        if (enabled || scanState.value != ScanState.Scanning) return
+        if (enabled) return
+        scanDesired = false
+        if (scanState.value != ScanState.Scanning) return
         Timber.d("[BT][OFF]")
         cancelRecordCollector()
         scan.stopScan(StopReason.BLUETOOTH_OFF)

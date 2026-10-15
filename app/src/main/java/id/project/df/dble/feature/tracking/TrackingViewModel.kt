@@ -56,6 +56,8 @@ class TrackingViewModel @AssistedInject constructor(
                 Timber.d("[NAV][BACK]")
                 sendEffect(Effect.NavigateBack)
             }
+            Intent.PermissionsGranted -> ensureScanning()
+            Intent.ScreenResumed -> retryAfterSettingsFix()
         }
     }
 
@@ -67,10 +69,19 @@ class TrackingViewModel @AssistedInject constructor(
                 updateState { copy(banner = StopReason.PERMISSION_REVOKED) }
                 sendEffect(Effect.RequestPermissions(check.permissions))
             }
-            PermissionCheck.LocationServiceOff -> {
-                updateState { copy(banner = StopReason.LOCATION_OFF) }
-                sendEffect(Effect.OpenLocationSettings)
-            }
+            PermissionCheck.LocationServiceOff -> updateState { copy(banner = StopReason.LOCATION_OFF) }
+            PermissionCheck.BluetoothOff -> updateState { copy(banner = StopReason.BLUETOOTH_OFF) }
+        }
+    }
+
+    private fun retryAfterSettingsFix() {
+        val banner = uiState.value.banner
+        if (banner != StopReason.LOCATION_OFF && banner != StopReason.BLUETOOTH_OFF) return
+        when (scanController.requestScan()) {
+            PermissionCheck.Granted -> Unit
+            is PermissionCheck.Missing -> updateState { copy(banner = StopReason.PERMISSION_REVOKED) }
+            PermissionCheck.LocationServiceOff -> updateState { copy(banner = StopReason.LOCATION_OFF) }
+            PermissionCheck.BluetoothOff -> updateState { copy(banner = StopReason.BLUETOOTH_OFF) }
         }
     }
 

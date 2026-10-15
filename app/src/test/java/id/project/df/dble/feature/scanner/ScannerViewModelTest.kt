@@ -75,6 +75,28 @@ class ScannerViewModelTest {
     }
 
     @Test
+    fun given_IzinKurang_when_StartScan_then_BannerPermissionRevoked() = runTest {
+        every { scanController.requestScan() } returns PermissionCheck.Missing(listOf("p1"))
+
+        viewModel.uiState.test {
+            skipItems(1)
+            viewModel.sendIntent(Intent.StartScanClicked)
+            assertEquals(StopReason.PERMISSION_REVOKED, awaitItem().banner)
+        }
+    }
+
+    @Test
+    fun given_BluetoothOff_when_StartScan_then_BannerBluetoothOff() = runTest {
+        every { scanController.requestScan() } returns PermissionCheck.BluetoothOff
+
+        viewModel.uiState.test {
+            skipItems(1)
+            viewModel.sendIntent(Intent.StartScanClicked)
+            assertEquals(StopReason.BLUETOOTH_OFF, awaitItem().banner)
+        }
+    }
+
+    @Test
     fun given_LocationOff_when_StartScan_then_BannerLocationOff() = runTest {
         every { scanController.requestScan() } returns PermissionCheck.LocationServiceOff
 

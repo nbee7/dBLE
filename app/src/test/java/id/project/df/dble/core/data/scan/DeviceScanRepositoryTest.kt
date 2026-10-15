@@ -37,6 +37,17 @@ private val FixedTime = object : TimeProvider {
 class DeviceScanRepositoryTest {
 
     @Test
+    fun given_SecurityException_when_Scan_then_StopPermissionRevoked() = runTest {
+        val source = FakeSource { throw SecurityException("izin dicabut") }
+        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime)
+
+        repo.startScan()
+        runCurrent()
+
+        assertEquals(ScanState.Stopped(StopReason.PERMISSION_REVOKED), repo.scanState.value)
+    }
+
+    @Test
     fun given_StartDuaKali_when_StartScan_then_TetapSatuCollector() = runTest {
         val source = FakeSource { awaitCancellation() }
         val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime)

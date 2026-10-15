@@ -104,6 +104,7 @@ class DeviceScanRepositoryImpl @Inject constructor(
             ScanCallback.SCAN_FAILED_SCANNING_TOO_FREQUENTLY -> StopReason.SCAN_FAILED_TOO_FREQUENTLY
             else -> StopReason.SCAN_FAILED_OTHER
         }
+        is SecurityException -> StopReason.PERMISSION_REVOKED
         else -> StopReason.SCAN_FAILED_OTHER
     }
 }
