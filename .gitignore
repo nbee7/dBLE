@@ -21,3 +21,8 @@ local.properties
 guidelines/
 .superpowers/
 !README.md
+
+# Release signing secrets — never commit
+keystore.properties
+*.keystore
+*.jks
