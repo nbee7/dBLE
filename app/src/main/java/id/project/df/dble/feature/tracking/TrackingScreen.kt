@@ -10,7 +10,12 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import android.content.res.Configuration
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -123,21 +128,33 @@ fun TrackingContent(state: State, onBack: () -> Unit, onBannerClick: (StopReason
             )
         }
         AnimatedVisibility(visible = state.isLost) { LostBanner() }
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
-        ) {
-            ZoneSegmentBar(activeZone = state.zone.takeUnless { state.isLost })
-            EstimateCard(state = state, modifier = Modifier.alpha(if (state.isLost) 0.4f else 1f))
-            RssiLineChart(
-                points = state.points,
-                modifier = Modifier
-                    .weight(1f)
-                    .alpha(if (state.isLost) 0.4f else 1f),
-            )
+        val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+        val contentModifier = Modifier
+            .weight(1f)
+            .fillMaxWidth()
+            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+        val dimmed = Modifier.alpha(if (state.isLost) 0.4f else 1f)
+        if (isLandscape) {
+            // Tinggi landscape sempit: zona + estimasi di kiri (scrollable), chart memakai seluruh tinggi di kanan.
+            Row(modifier = contentModifier, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    ZoneSegmentBar(activeZone = state.zone.takeUnless { state.isLost })
+                    EstimateCard(state = state, modifier = dimmed)
+                }
+                RssiLineChart(points = state.points, modifier = Modifier.weight(1f).fillMaxHeight().then(dimmed))
+            }
+        } else {
+            Column(modifier = contentModifier, verticalArrangement = Arrangement.spacedBy(20.dp)) {
+                ZoneSegmentBar(activeZone = state.zone.takeUnless { state.isLost })
+                EstimateCard(state = state, modifier = dimmed)
+                RssiLineChart(points = state.points, modifier = Modifier.weight(1f).then(dimmed))
+            }
         }
     }
 }
@@ -287,7 +304,7 @@ fun RssiLineChart(points: ImmutableList<RssiPoint>, modifier: Modifier = Modifie
                 drawLine(gridColor, Offset(gutter, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
                 val label = textMeasurer.measure("−${-level.toInt()}", labelStyle)
                 // Label di tepi atas/bawah digeser masuk agar tidak terpotong.
-                val top = (y - label.size.height / 2f).coerceIn(0f, size.height - label.size.height)
+                val top = chartLabelTop(y, label.size.height.toFloat(), size.height)
                 drawText(label, topLeft = Offset(gutter - label.size.width - 6.dp.toPx(), top))
             }
             if (points.size < 2) return@Canvas
@@ -311,6 +328,9 @@ fun RssiLineChart(points: ImmutableList<RssiPoint>, modifier: Modifier = Modifie
         }
     }
 }
+
+internal fun chartLabelTop(y: Float, labelHeight: Float, canvasHeight: Float): Float =
+    (y - labelHeight / 2f).coerceIn(0f, (canvasHeight - labelHeight).coerceAtLeast(0f))
 
 private fun yFor(rssi: Float, height: Float): Float {
     val clamped = rssi.coerceIn(ChartMinRssi, ChartMaxRssi)
