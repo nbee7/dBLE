@@ -76,7 +76,6 @@ class ScanController @Inject constructor(
     fun onBackground() {
         if (scanState.value != ScanState.Scanning) return
         Timber.d("[SCAN][BG]")
-        // scanDesired tetap: resume menghidupkan ulang bila izin masih valid
         cancelRecordCollector()
         scan.stopScan(StopReason.USER_STOPPED)
         flush()
@@ -90,7 +89,6 @@ class ScanController @Inject constructor(
                 scan.startScan()
                 startRecordCollector()
             }
-            // Banner penyebab berhenti, tidak menyala senyap
             is PermissionCheck.Missing -> {
                 Timber.d("[SCAN][STOP] reason=PERMISSION_REVOKED")
                 scan.stopScan(StopReason.PERMISSION_REVOKED)

@@ -34,7 +34,6 @@ fun ScanSettingsDialog(
     onApply: (ScanConfig) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // Pilihan ditahan lokal sampai "Terapkan": scan berjalan baru di-restart saat disetujui.
     var draft by remember(config) { mutableStateOf(config) }
 
     AlertDialog(

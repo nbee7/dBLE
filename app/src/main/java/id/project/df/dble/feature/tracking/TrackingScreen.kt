@@ -135,7 +135,6 @@ fun TrackingContent(state: State, onBack: () -> Unit, onBannerClick: (StopReason
             .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
         val dimmed = Modifier.alpha(if (state.isLost) 0.4f else 1f)
         if (isLandscape) {
-            // Tinggi landscape sempit: zona + estimasi di kiri (scrollable), chart memakai seluruh tinggi di kanan.
             Row(modifier = contentModifier, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Column(
                     modifier = Modifier
@@ -303,7 +302,6 @@ fun RssiLineChart(points: ImmutableList<RssiPoint>, modifier: Modifier = Modifie
                 val y = yFor(level, size.height)
                 drawLine(gridColor, Offset(gutter, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
                 val label = textMeasurer.measure("−${-level.toInt()}", labelStyle)
-                // Label di tepi atas/bawah digeser masuk agar tidak terpotong.
                 val top = chartLabelTop(y, label.size.height.toFloat(), size.height)
                 drawText(label, topLeft = Offset(gutter - label.size.width - 6.dp.toPx(), top))
             }

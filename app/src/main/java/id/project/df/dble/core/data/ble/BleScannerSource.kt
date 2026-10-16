@@ -60,7 +60,6 @@ class AndroidBleScannerSource @Inject constructor(
                 ScanMode.CEPAT -> ScanSettings.SCAN_MODE_LOW_LATENCY
             },
         )
-        // setLegacy(false) tetap menerima iklan legacy; hanya menambah iklan extended (BLE 5).
         .setLegacy(!config.extended)
         .build()
 }

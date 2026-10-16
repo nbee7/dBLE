@@ -53,7 +53,6 @@ fun HistoryScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var refreshKey by remember { mutableIntStateOf(0) }
-    // Label waktu relatif dihitung dari jam saat ini, bukan dari emisi Room: segarkan tiap 30 s dan saat diminta manual.
     val nowMillis by produceState(System.currentTimeMillis(), refreshKey) {
         value = System.currentTimeMillis()
         while (true) {

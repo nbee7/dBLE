@@ -49,7 +49,6 @@ private val LightColorScheme = lightColorScheme(
     outlineVariant = OutlineVariantLight,
 )
 
-// Dynamic color default mati: identitas hijau dan warna zona harus konsisten (spec §4).
 @Composable
 fun DBLETheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

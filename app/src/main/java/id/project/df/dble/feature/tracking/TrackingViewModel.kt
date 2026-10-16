@@ -42,7 +42,6 @@ class TrackingViewModel @AssistedInject constructor(
                     is ScanState.Stopped -> updateState {
                         copy(banner = state.reason.takeUnless { it == StopReason.USER_STOPPED })
                     }
-                    // Idle tidak menimpa banner izin dari ensureScanning.
                     ScanState.Idle -> Unit
                 }
             }
