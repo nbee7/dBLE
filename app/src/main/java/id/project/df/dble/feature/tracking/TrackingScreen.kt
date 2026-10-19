@@ -147,7 +147,7 @@ fun TrackingContent(
         val contentModifier = Modifier
             .weight(1f)
             .fillMaxWidth()
-            .padding(start = 16.dp, end = 16.dp, bottom = 16.dp)
+            .padding(start = 16.dp, end = 16.dp)
         val dimmed = Modifier.alpha(if (state.isLost) 0.4f else 1f)
         if (isLandscape) {
             Row(modifier = contentModifier, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -160,7 +160,6 @@ fun TrackingContent(
                 ) {
                     ZoneSegmentBar(activeZone = state.zone.takeUnless { state.isLost })
                     EstimateCard(state = state, modifier = dimmed)
-                    ExportButton(state.sampleCount, state.isExporting, onExport)
                 }
                 RssiLineChart(points = state.points, modifier = Modifier.weight(1f).fillMaxHeight().then(dimmed))
             }
@@ -169,9 +168,14 @@ fun TrackingContent(
                 ZoneSegmentBar(activeZone = state.zone.takeUnless { state.isLost })
                 EstimateCard(state = state, modifier = dimmed)
                 RssiLineChart(points = state.points, modifier = Modifier.weight(1f).then(dimmed))
-                ExportButton(state.sampleCount, state.isExporting, onExport)
             }
         }
+        ExportButton(
+            sampleCount = state.sampleCount,
+            isExporting = state.isExporting,
+            onClick = onExport,
+            modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+        )
     }
 }
 
@@ -369,8 +373,8 @@ private fun LegendItem(color: Color, label: String) {
 }
 
 @Composable
-private fun ExportButton(sampleCount: Int, isExporting: Boolean, onClick: () -> Unit) {
-    Button(onClick = onClick, enabled = sampleCount > 0 && !isExporting, modifier = Modifier.fillMaxWidth()) {
+private fun ExportButton(sampleCount: Int, isExporting: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Button(onClick = onClick, enabled = sampleCount > 0 && !isExporting, modifier = modifier.fillMaxWidth()) {
         Text("Ekspor data ($sampleCount sampel, ${RssiRecorder.WINDOW_MS / 60_000} menit terakhir)")
     }
 }
