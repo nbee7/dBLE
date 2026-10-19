@@ -46,15 +46,35 @@ class TrackingViewModelTest {
         return TrackingViewModel(TrackingRoute(mac), observeTarget, time, scanController)
     }
 
-    private fun target(rssi: Int, isLost: Boolean = false) = TrackedTarget(
+    private fun target(
+        rssi: Int,
+        isLost: Boolean = false,
+        smoothed: Double = rssi.toDouble(),
+        kalman: Double = rssi.toDouble(),
+    ) = TrackedTarget(
         mac = mac,
         name = "Tag",
         rawRssi = rssi,
-        smoothedRssi = rssi.toDouble(),
+        smoothedRssi = smoothed,
         zone = ProximityZone.KUAT,
         distanceMeters = 3.0,
         isLost = isLost,
+        kalmanRssi = kalman,
     )
+
+    @Test
+    fun given_TargetDenganEmaDanKalman_when_Collect_then_PointDanStateMembawaKeduanya() = runTest {
+        val vm = viewModel()
+
+        vm.uiState.test {
+            skipItems(1)
+            now = 5_000
+            targets.emit(target(-50, smoothed = -52.0, kalman = -51.0))
+            val state = awaitItem()
+            assertEquals(RssiPoint(5_000, -50, -52.0, -51.0), state.points.last())
+            assertEquals(-51.0, state.kalmanRssi!!, 1e-9)
+        }
+    }
 
     @Test
     fun given_MacDariRoute_when_Init_then_StateBerisiMac() = runTest {

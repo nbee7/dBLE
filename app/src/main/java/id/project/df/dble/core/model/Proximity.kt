@@ -102,4 +102,5 @@ data class TrackedTarget(
     val zone: ProximityZone,
     val distanceMeters: Double?,
     val isLost: Boolean,
+    val kalmanRssi: Double = smoothedRssi,
 )

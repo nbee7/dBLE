@@ -365,11 +365,11 @@ private val PreviewState = State(
     distanceMeters = 2.4,
     isLost = false,
     points = persistentListOf(
-        RssiPoint(0, -60),
-        RssiPoint(10_000, -52),
-        RssiPoint(20_000, -48),
-        RssiPoint(30_000, -55),
-        RssiPoint(40_000, -46),
+        RssiPoint(0, -60, -60.0, -60.0),
+        RssiPoint(10_000, -52, -57.0, -56.0),
+        RssiPoint(20_000, -48, -53.0, -52.0),
+        RssiPoint(30_000, -55, -54.0, -53.0),
+        RssiPoint(40_000, -46, -51.0, -50.0),
     ),
 )
 

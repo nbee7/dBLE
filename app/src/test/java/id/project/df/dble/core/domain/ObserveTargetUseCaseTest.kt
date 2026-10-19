@@ -26,7 +26,7 @@ class ObserveTargetUseCaseTest {
         override fun nowMillis(): Long = testScheduler.currentTime
     }
 
-    private fun device(rssi: Int, lastSeen: Long, mac: String = this.mac) = TrackedDevice(
+    private fun device(rssi: Int, lastSeen: Long, mac: String = this.mac, kalmanRssi: Double = rssi.toDouble()) = TrackedDevice(
         mac = mac,
         name = "Tag",
         rawRssi = rssi,
@@ -34,6 +34,7 @@ class ObserveTargetUseCaseTest {
         zone = ProximityZone.KUAT,
         distanceMeters = 3.0,
         lastSeenMillis = lastSeen,
+        kalmanRssi = kalmanRssi,
     )
 
     private fun useCase(scope: TestScope, devices: MutableStateFlow<List<TrackedDevice>>): ObserveTargetUseCase {
@@ -82,6 +83,16 @@ class ObserveTargetUseCaseTest {
             val back = expectMostRecentItem()
             assertFalse(back.isLost)
             assertEquals(-50, back.rawRssi)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun given_DeviceDenganKalman_when_Observe_then_TargetMembawaKalmanRssi() = runTest {
+        val devices = MutableStateFlow(listOf(device(-45, lastSeen = 0, kalmanRssi = -47.5)))
+
+        useCase(this, devices)(mac).test {
+            assertEquals(-47.5, awaitItem().kalmanRssi, 1e-9)
             cancelAndIgnoreRemainingEvents()
         }
     }
