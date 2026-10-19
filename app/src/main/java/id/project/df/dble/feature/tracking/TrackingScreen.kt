@@ -78,6 +78,7 @@ import java.util.Locale
 
 private val ChartLine = Color(0xFF3B82F6)
 private val ChartKalman = Color(0xFFF97316)
+private val ChartAdaptiveKalman = Color(0xFF22C55E)
 private const val ChartMinRssi = -90f
 private const val ChartMaxRssi = -30f
 private const val ChartWindowMs = 60_000L
@@ -297,6 +298,11 @@ fun EstimateCard(state: State, modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.titleSmall,
                 fontFamily = FontFamily.Monospace,
             )
+            Text(
+                text = "AdKalman ${dbm(state.adKalmanRssi)} dBm",
+                style = MaterialTheme.typography.titleSmall,
+                fontFamily = FontFamily.Monospace,
+            )
         }
     }
 }
@@ -326,6 +332,7 @@ fun RssiLineChart(points: ImmutableList<RssiPoint>, modifier: Modifier = Modifie
             LegendItem(rawColor, "Raw")
             LegendItem(ChartLine, "EMA")
             LegendItem(ChartKalman, "Kalman")
+            LegendItem(ChartAdaptiveKalman, "AdKalman")
         }
         Canvas(modifier = Modifier.fillMaxWidth().weight(1f)) {
             val gutter = YAxisWidth.toPx()
@@ -351,6 +358,7 @@ fun RssiLineChart(points: ImmutableList<RssiPoint>, modifier: Modifier = Modifie
             line(rawColor, 1.dp.toPx()) { it.rssi.toFloat() }
             line(ChartLine, 2.dp.toPx()) { it.emaRssi.toFloat() }
             line(ChartKalman, 2.dp.toPx()) { it.kalmanRssi.toFloat() }
+            line(ChartAdaptiveKalman, 2.dp.toPx()) { it.adKalmanRssi.toFloat() }
         }
         Row(
             modifier = Modifier
