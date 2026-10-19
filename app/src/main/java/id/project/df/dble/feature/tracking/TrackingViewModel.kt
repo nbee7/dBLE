@@ -125,10 +125,11 @@ class TrackingViewModel @AssistedInject constructor(
                 rawRssi = target.rawRssi,
                 smoothedRssi = target.smoothedRssi,
                 kalmanRssi = target.kalmanRssi,
+                adKalmanRssi = target.adKalmanRssi,
                 zone = target.zone,
                 distanceMeters = target.distanceMeters,
                 isLost = target.isLost,
-                points = (if (target.isLost) kept else kept + RssiPoint(now, target.rawRssi, target.smoothedRssi, target.kalmanRssi)).toPersistentList(),
+                points = (if (target.isLost) kept else kept + RssiPoint(now, target.rawRssi, target.smoothedRssi, target.kalmanRssi, target.adKalmanRssi)).toPersistentList(),
             )
         }
     }

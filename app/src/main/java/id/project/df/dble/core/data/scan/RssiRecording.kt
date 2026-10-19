@@ -5,6 +5,10 @@ import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
 import dagger.hilt.android.qualifiers.ApplicationContext
+import id.project.df.dble.core.model.ADAPTIVE_KALMAN_BETA
+import id.project.df.dble.core.model.ADAPTIVE_KALMAN_Q_MAX
+import id.project.df.dble.core.model.ADAPTIVE_KALMAN_Q_MIN
+import id.project.df.dble.core.model.ADAPTIVE_KALMAN_THRESHOLD_DB
 import id.project.df.dble.core.model.EMA_ALPHA
 import id.project.df.dble.core.model.KALMAN_Q
 import id.project.df.dble.core.model.KALMAN_R
@@ -31,6 +35,7 @@ data class RssiSample(
     val rawRssi: Int,
     val emaRssi: Double,
     val kalmanRssi: Double,
+    val adKalmanRssi: Double = kalmanRssi,
 )
 
 // need new file
@@ -87,7 +92,7 @@ data class ExportMeta(
 object RssiCsv {
 
     private const val COLUMNS =
-        "t_ms,epoch_ms,dt_ms,mac,raw_rssi,ema_rssi,kalman_rssi,raw_zone,ema_zone,kalman_zone,raw_dist_m,ema_dist_m,kalman_dist_m"
+        "t_ms,epoch_ms,dt_ms,mac,raw_rssi,ema_rssi,kalman_rssi,raw_zone,ema_zone,kalman_zone,raw_dist_m,ema_dist_m,kalman_dist_m,adkalman_rssi,adkalman_zone,adkalman_dist_m"
 
     fun build(meta: ExportMeta, samples: List<RssiSample>): String = buildString {
         appendLine("# mac=${meta.mac}")
@@ -100,6 +105,11 @@ object RssiCsv {
         appendLine("# ema_alpha=$EMA_ALPHA")
         appendLine("# kalman_q=$KALMAN_Q")
         appendLine("# kalman_r=$KALMAN_R")
+        appendLine("# adkalman_q_min=$ADAPTIVE_KALMAN_Q_MIN")
+        appendLine("# adkalman_q_max=$ADAPTIVE_KALMAN_Q_MAX")
+        appendLine("# adkalman_threshold_db=$ADAPTIVE_KALMAN_THRESHOLD_DB")
+        appendLine("# adkalman_r=$KALMAN_R")
+        appendLine("# adkalman_beta=$ADAPTIVE_KALMAN_BETA")
         appendLine("# window_ms=${RssiRecorder.WINDOW_MS}")
         appendLine(COLUMNS)
         val first = samples.firstOrNull()?.tMillis ?: 0L
@@ -107,6 +117,7 @@ object RssiCsv {
         samples.forEach { s ->
             val emaInt = s.emaRssi.roundToInt()
             val kalmanInt = s.kalmanRssi.roundToInt()
+            val adKalmanInt = s.adKalmanRssi.roundToInt()
             appendLine(
                 listOf(
                     s.tMillis - first,
@@ -122,6 +133,9 @@ object RssiCsv {
                     distance(s.rawRssi),
                     distance(emaInt),
                     distance(kalmanInt),
+                    number(s.adKalmanRssi),
+                    zoneFor(adKalmanInt).name,
+                    distance(adKalmanInt),
                 ).joinToString(","),
             )
             previous = s.tMillis

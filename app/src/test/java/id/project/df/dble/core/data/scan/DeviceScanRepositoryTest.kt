@@ -112,6 +112,7 @@ class DeviceScanRepositoryTest {
         assertEquals(-60, sample.rawRssi)
         assertEquals(-60.0, sample.emaRssi, 1e-9)
         assertEquals(-60.0, sample.kalmanRssi, 1e-9)
+        assertEquals(-60.0, sample.adKalmanRssi, 1e-9)
         assertEquals(1_000L, sample.tMillis)
     }
 

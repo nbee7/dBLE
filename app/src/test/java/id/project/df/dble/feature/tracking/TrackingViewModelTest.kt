@@ -61,6 +61,7 @@ class TrackingViewModelTest {
         isLost: Boolean = false,
         smoothed: Double = rssi.toDouble(),
         kalman: Double = rssi.toDouble(),
+        adKalman: Double = rssi.toDouble(),
     ) = TrackedTarget(
         mac = mac,
         name = "Tag",
@@ -70,6 +71,7 @@ class TrackingViewModelTest {
         distanceMeters = 3.0,
         isLost = isLost,
         kalmanRssi = kalman,
+        adKalmanRssi = adKalman,
     )
 
     @Test
@@ -79,10 +81,11 @@ class TrackingViewModelTest {
         vm.uiState.test {
             skipItems(1)
             now = 5_000
-            targets.emit(target(-50, smoothed = -52.0, kalman = -51.0))
+            targets.emit(target(-50, smoothed = -52.0, kalman = -51.0, adKalman = -50.5))
             val state = awaitItem()
-            assertEquals(RssiPoint(5_000, -50, -52.0, -51.0), state.points.last())
+            assertEquals(RssiPoint(5_000, -50, -52.0, -51.0, -50.5), state.points.last())
             assertEquals(-51.0, state.kalmanRssi!!, 1e-9)
+            assertEquals(-50.5, state.adKalmanRssi!!, 1e-9)
         }
     }
 

@@ -417,16 +417,17 @@ private val PreviewState = State(
     rawRssi = -46,
     smoothedRssi = -47.0,
     kalmanRssi = -46.0,
+    adKalmanRssi = -45.0,
     sampleCount = 1234,
     zone = ProximityZone.KUAT,
     distanceMeters = 2.4,
     isLost = false,
     points = persistentListOf(
-        RssiPoint(0, -60, -60.0, -60.0),
-        RssiPoint(10_000, -52, -57.0, -56.0),
-        RssiPoint(20_000, -48, -53.0, -52.0),
-        RssiPoint(30_000, -55, -54.0, -53.0),
-        RssiPoint(40_000, -46, -51.0, -50.0),
+        RssiPoint(0, -60, -60.0, -60.0, -60.0),
+        RssiPoint(10_000, -52, -57.0, -56.0, -55.0),
+        RssiPoint(20_000, -48, -53.0, -52.0, -51.0),
+        RssiPoint(30_000, -55, -54.0, -53.0, -54.0),
+        RssiPoint(40_000, -46, -51.0, -50.0, -49.0),
     ),
 )
 

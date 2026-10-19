@@ -10,7 +10,7 @@ import id.project.df.dble.core.model.ProximityZone
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 
-data class RssiPoint(val tMillis: Long, val rssi: Int, val emaRssi: Double, val kalmanRssi: Double)
+data class RssiPoint(val tMillis: Long, val rssi: Int, val emaRssi: Double, val kalmanRssi: Double, val adKalmanRssi: Double)
 
 @Immutable
 data class State(
@@ -19,6 +19,7 @@ data class State(
     val rawRssi: Int? = null,
     val smoothedRssi: Double? = null,
     val kalmanRssi: Double? = null,
+    val adKalmanRssi: Double? = null,
     val zone: ProximityZone? = null,
     val distanceMeters: Double? = null,
     val isLost: Boolean = true,

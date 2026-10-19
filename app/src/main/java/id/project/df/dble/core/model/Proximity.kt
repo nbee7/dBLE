@@ -139,4 +139,5 @@ data class TrackedTarget(
     val distanceMeters: Double?,
     val isLost: Boolean,
     val kalmanRssi: Double = smoothedRssi,
+    val adKalmanRssi: Double = smoothedRssi,
 )

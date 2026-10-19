@@ -80,7 +80,7 @@ class DeviceScanRepositoryImpl @Inject constructor(
         val now = time.nowMillis()
         tracked = ScanAggregation.upsert(tracked, ad, now)
         tracked[ad.mac]?.let {
-            recorder.onSample(RssiSample(now, it.mac, it.rawRssi, it.smoothedRssi, it.kalmanRssi))
+            recorder.onSample(RssiSample(now, it.mac, it.rawRssi, it.smoothedRssi, it.kalmanRssi, it.adKalmanRssi))
         }
         tracked = ScanAggregation.prune(tracked, now)
         publish()
