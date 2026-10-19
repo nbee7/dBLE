@@ -1,5 +1,6 @@
 package id.project.df.dble.feature.tracking
 
+import android.net.Uri
 import androidx.compose.runtime.Immutable
 import id.project.df.dble.core.common.mvi.MviEffect
 import id.project.df.dble.core.common.mvi.MviIntent
@@ -23,15 +24,20 @@ data class State(
     val isLost: Boolean = true,
     val points: ImmutableList<RssiPoint> = persistentListOf(),
     val banner: StopReason? = null,
+    val sampleCount: Int = 0,
+    val isExporting: Boolean = false,
 ) : MviState
 
 sealed interface Intent : MviIntent {
     data object BackClicked : Intent
     data object PermissionsGranted : Intent
     data object ScreenResumed : Intent
+    data object ExportClicked : Intent
 }
 
 sealed interface Effect : MviEffect {
     data object NavigateBack : Effect
+    data class ShareFile(val uri: Uri) : Effect
+    data object ExportFailed : Effect
     data class RequestPermissions(val permissions: List<String>) : Effect
 }

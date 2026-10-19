@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import android.content.res.Configuration
+import android.widget.Toast
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,6 +65,7 @@ import id.project.df.dble.core.data.scan.StopReason
 import id.project.df.dble.core.ui.hasSettingsAction
 import id.project.df.dble.core.ui.openSettingsFor
 import id.project.df.dble.core.ui.rememberPermissionRequester
+import id.project.df.dble.core.ui.shareCsv
 import id.project.df.dble.feature.scanner.bannerText
 import id.project.df.dble.ui.theme.DBLETheme
 import kotlinx.collections.immutable.ImmutableList
@@ -102,6 +104,8 @@ fun TrackingScreen(
         when (effect) {
             Effect.NavigateBack -> onBack()
             is Effect.RequestPermissions -> requestPermissions(effect.permissions)
+            is Effect.ShareFile -> context.shareCsv(effect.uri)
+            Effect.ExportFailed -> Toast.makeText(context, "Gagal mengekspor data", Toast.LENGTH_SHORT).show()
         }
     }
     val beeper = remember { AndroidProximityBeeper() }

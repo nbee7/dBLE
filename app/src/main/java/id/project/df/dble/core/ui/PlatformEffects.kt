@@ -44,3 +44,11 @@ fun Context.openSettingsFor(reason: StopReason) {
         else -> Unit
     }
 }
+
+fun Context.shareCsv(uri: Uri) {
+    val send = Intent(Intent.ACTION_SEND)
+        .setType("text/csv")
+        .putExtra(Intent.EXTRA_STREAM, uri)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    startActivity(Intent.createChooser(send, "Ekspor data RSSI").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+}
