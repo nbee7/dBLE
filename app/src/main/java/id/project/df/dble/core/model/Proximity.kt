@@ -45,8 +45,31 @@ fun beepIntervalMsFor(zone: ProximityZone): Long? = when (zone) {
     else -> null
 }
 
-fun ema(previous: Double?, current: Int, alpha: Double = 0.3): Double =
+const val EMA_ALPHA = 0.3
+const val KALMAN_Q = 0.5
+const val KALMAN_R = 16.0
+
+fun ema(previous: Double?, current: Int, alpha: Double = EMA_ALPHA): Double =
     previous?.let { alpha * current + (1 - alpha) * it } ?: current.toDouble()
+
+// need new file
+data class KalmanState(val estimate: Double, val variance: Double)
+
+fun kalman(
+    previous: KalmanState?,
+    rssi: Int,
+    dtMillis: Long,
+    q: Double = KALMAN_Q,
+    r: Double = KALMAN_R,
+): KalmanState {
+    if (previous == null) return KalmanState(rssi.toDouble(), r)
+    val predicted = previous.variance + q * dtMillis.coerceAtLeast(0) / 1_000.0
+    val gain = predicted / (predicted + r)
+    return KalmanState(
+        estimate = previous.estimate + gain * (rssi - previous.estimate),
+        variance = (1 - gain) * predicted,
+    )
+}
 
 data class BleAdvertise(val mac: String, val name: String?, val rssi: Int)
 
@@ -58,6 +81,8 @@ data class TrackedDevice(
     val zone: ProximityZone,
     val distanceMeters: Double?,
     val lastSeenMillis: Long,
+    val kalmanRssi: Double = smoothedRssi,
+    val kalmanVariance: Double = KALMAN_R,
 )
 
 data class DetectedDevice(
