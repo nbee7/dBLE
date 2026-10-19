@@ -89,11 +89,22 @@ class RssiRecorderTest {
         val recorder = RssiRecorder().apply { track(mac) }
         recorder.onSample(sample(0))
 
-        recorder.release()
+        recorder.release(mac)
         recorder.onSample(sample(500))
 
         assertTrue(recorder.snapshot().isEmpty())
         assertEquals(0, recorder.sampleCount.value)
+    }
+
+    @Test
+    fun given_TrackBSebelumReleaseA_when_Release_then_BTetapMerekam() {
+        val recorder = RssiRecorder().apply { track(mac) }
+
+        recorder.track(other)
+        recorder.release(mac)
+        recorder.onSample(sample(0, mac = other))
+
+        assertEquals(1, recorder.snapshot().size)
     }
 
     @Test

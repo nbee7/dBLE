@@ -51,7 +51,8 @@ class RssiRecorder @Inject constructor() {
         _sampleCount.value = 0
     }
 
-    fun release() = synchronized(lock) {
+    fun release(mac: String) = synchronized(lock) {
+        if (trackedMac != mac) return@synchronized
         buffer.clear()
         trackedMac = null
         _sampleCount.value = 0

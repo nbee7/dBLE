@@ -88,7 +88,7 @@ class TrackingViewModel @AssistedInject constructor(
     }
 
     public override fun onCleared() {
-        recorder.release()
+        recorder.release(route.mac)
         super.onCleared()
     }
 
