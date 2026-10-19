@@ -1,5 +1,7 @@
 package id.project.df.dble.core.model
 
+import kotlin.math.abs
+
 enum class ProximityZone(val label: String) {
     SANGAT_KUAT("Sangat Kuat"),
     KUAT("Kuat"),
@@ -48,6 +50,10 @@ fun beepIntervalMsFor(zone: ProximityZone): Long? = when (zone) {
 const val EMA_ALPHA = 0.3
 const val KALMAN_Q = 0.5
 const val KALMAN_R = 16.0
+const val ADAPTIVE_KALMAN_Q_MIN = 0.05
+const val ADAPTIVE_KALMAN_Q_MAX = 4.0
+const val ADAPTIVE_KALMAN_THRESHOLD_DB = 6.0
+const val ADAPTIVE_KALMAN_BETA = 0.2
 
 fun ema(previous: Double?, current: Int, alpha: Double = EMA_ALPHA): Double =
     previous?.let { alpha * current + (1 - alpha) * it } ?: current.toDouble()
@@ -71,6 +77,33 @@ fun kalman(
     )
 }
 
+// need new file
+data class AdaptiveKalmanState(val estimate: Double, val variance: Double, val innovationMean: Double)
+
+fun adaptiveKalman(
+    previous: AdaptiveKalmanState?,
+    rssi: Int,
+    dtMillis: Long,
+    qMin: Double = ADAPTIVE_KALMAN_Q_MIN,
+    qMax: Double = ADAPTIVE_KALMAN_Q_MAX,
+    thresholdDb: Double = ADAPTIVE_KALMAN_THRESHOLD_DB,
+    r: Double = KALMAN_R,
+    beta: Double = ADAPTIVE_KALMAN_BETA,
+): AdaptiveKalmanState {
+    if (previous == null) return AdaptiveKalmanState(rssi.toDouble(), r, 0.0)
+    val innovation = rssi - previous.estimate
+    val innovationMean = previous.innovationMean + beta * (innovation - previous.innovationMean)
+    val weight = minOf(abs(innovationMean) / thresholdDb, 1.0)
+    val q = qMin + (qMax - qMin) * weight
+    val predicted = previous.variance + q * dtMillis.coerceAtLeast(0) / 1_000.0
+    val gain = predicted / (predicted + r)
+    return AdaptiveKalmanState(
+        estimate = previous.estimate + gain * innovation,
+        variance = (1 - gain) * predicted,
+        innovationMean = innovationMean,
+    )
+}
+
 data class BleAdvertise(val mac: String, val name: String?, val rssi: Int)
 
 data class TrackedDevice(
@@ -83,6 +116,9 @@ data class TrackedDevice(
     val lastSeenMillis: Long,
     val kalmanRssi: Double = smoothedRssi,
     val kalmanVariance: Double = KALMAN_R,
+    val adKalmanRssi: Double = smoothedRssi,
+    val adKalmanVariance: Double = KALMAN_R,
+    val adKalmanInnovation: Double = 0.0,
 )
 
 data class DetectedDevice(

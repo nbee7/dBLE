@@ -3,7 +3,9 @@ package id.project.df.dble.core.data.scan
 import id.project.df.dble.core.model.BleAdvertise
 import id.project.df.dble.core.model.TrackedDevice
 import id.project.df.dble.core.model.distanceMetersFor
+import id.project.df.dble.core.model.AdaptiveKalmanState
 import id.project.df.dble.core.model.KalmanState
+import id.project.df.dble.core.model.adaptiveKalman
 import id.project.df.dble.core.model.ema
 import id.project.df.dble.core.model.kalman
 import id.project.df.dble.core.model.zoneFor
@@ -19,6 +21,11 @@ object ScanAggregation {
             rssi = ad.rssi,
             dtMillis = previous?.let { nowMillis - it.lastSeenMillis } ?: 0L,
         )
+        val adaptive = adaptiveKalman(
+            previous = previous?.let { AdaptiveKalmanState(it.adKalmanRssi, it.adKalmanVariance, it.adKalmanInnovation) },
+            rssi = ad.rssi,
+            dtMillis = previous?.let { nowMillis - it.lastSeenMillis } ?: 0L,
+        )
         val updated = TrackedDevice(
             mac = ad.mac,
             name = previous?.name ?: ad.name,
@@ -29,6 +36,9 @@ object ScanAggregation {
             lastSeenMillis = nowMillis,
             kalmanRssi = filtered.estimate,
             kalmanVariance = filtered.variance,
+            adKalmanRssi = adaptive.estimate,
+            adKalmanVariance = adaptive.variance,
+            adKalmanInnovation = adaptive.innovationMean,
         )
         return map + (ad.mac to updated)
     }
