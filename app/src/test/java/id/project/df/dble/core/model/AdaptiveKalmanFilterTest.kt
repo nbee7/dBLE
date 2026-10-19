@@ -28,12 +28,18 @@ class AdaptiveKalmanFilterTest {
     }
 
     @Test
-    fun given_PerubahanBerkelanjutan_when_AdaptiveKalman_then_LebihCepatDariKalmanLambat() {
+    fun given_PerubahanBerkelanjutan_when_AdaptiveKalman_then_LebihCepatDariFilterDenganQTetapRendah() {
         var adaptive: AdaptiveKalmanState = start
-        var slow = KalmanState(start.estimate, start.variance)
+        var slow: AdaptiveKalmanState = start
         repeat(10) {
             adaptive = adaptiveKalman(adaptive, rssi = -70, dtMillis = 300)
-            slow = kalman(slow, rssi = -70, dtMillis = 300, q = ADAPTIVE_KALMAN_Q_MIN)
+            slow = adaptiveKalman(
+                slow,
+                rssi = -70,
+                dtMillis = 300,
+                qMin = ADAPTIVE_KALMAN_Q_MIN,
+                qMax = ADAPTIVE_KALMAN_Q_MIN,
+            )
         }
 
         assertTrue(abs(adaptive.estimate + 70) < abs(slow.estimate + 70))

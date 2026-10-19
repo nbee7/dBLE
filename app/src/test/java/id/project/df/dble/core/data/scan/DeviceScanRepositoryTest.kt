@@ -45,7 +45,7 @@ class DeviceScanRepositoryTest {
     fun given_ConfigTersimpan_when_StartScan_then_SourceMenerimaConfig() = runTest {
         val source = FakeSource { awaitCancellation() }
         val config = ScanConfig(ScanMode.SEIMBANG, extended = true)
-        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore(config), RssiRecorder())
+        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore(config))
 
         repo.startScan()
         runCurrent()
@@ -56,7 +56,7 @@ class DeviceScanRepositoryTest {
     @Test
     fun given_SecurityException_when_Scan_then_StopPermissionRevoked() = runTest {
         val source = FakeSource { throw SecurityException("izin dicabut") }
-        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore(), RssiRecorder())
+        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore())
 
         repo.startScan()
         runCurrent()
@@ -67,7 +67,7 @@ class DeviceScanRepositoryTest {
     @Test
     fun given_StartDuaKali_when_StartScan_then_TetapSatuCollector() = runTest {
         val source = FakeSource { awaitCancellation() }
-        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore(), RssiRecorder())
+        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore())
 
         repo.startScan()
         runCurrent()
@@ -84,7 +84,7 @@ class DeviceScanRepositoryTest {
             emit(BleAdvertise(mac = "AA:BB:CC:DD:EE:02", name = "Tag B", rssi = -60))
             throw BleScanException(ScanCallback.SCAN_FAILED_SCANNING_TOO_FREQUENTLY)
         }
-        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore(), RssiRecorder())
+        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore())
 
         repo.startScan()
         runCurrent()
@@ -97,41 +97,6 @@ class DeviceScanRepositoryTest {
     }
 
     @Test
-    fun given_MacDilacak_when_Advertise_then_RecorderMenerimaSampelDenganRawEmaKalman() = runTest {
-        val source = FakeSource {
-            emit(BleAdvertise(mac = "AA:BB:CC:DD:EE:04", name = "Tag D", rssi = -60))
-            awaitCancellation()
-        }
-        val recorder = RssiRecorder().apply { track("AA:BB:CC:DD:EE:04") }
-        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore(), recorder)
-
-        repo.startScan()
-        runCurrent()
-
-        val sample = recorder.snapshot().single()
-        assertEquals(-60, sample.rawRssi)
-        assertEquals(-60.0, sample.emaRssi, 1e-9)
-        assertEquals(-60.0, sample.kalmanRssi, 1e-9)
-        assertEquals(-60.0, sample.adKalmanRssi, 1e-9)
-        assertEquals(1_000L, sample.tMillis)
-    }
-
-    @Test
-    fun given_MacTidakDilacak_when_Advertise_then_RecorderKosong() = runTest {
-        val source = FakeSource {
-            emit(BleAdvertise(mac = "AA:BB:CC:DD:EE:05", name = "Tag E", rssi = -60))
-            awaitCancellation()
-        }
-        val recorder = RssiRecorder().apply { track("AA:BB:CC:DD:EE:99") }
-        val repo = DeviceScanRepositoryImpl(source, backgroundScope, FixedTime, FakeScanConfigStore(), recorder)
-
-        repo.startScan()
-        runCurrent()
-
-        assertTrue(recorder.snapshot().isEmpty())
-    }
-
-    @Test
     fun given_StartScan_when_AdDiterima_then_DevicesTerisiDanPruneTickerJalan() = runTest {
         // Waktu mengikuti jam virtual scheduler agar ticker prune bisa diuji dengan advanceTimeBy.
         val time = object : TimeProvider {
@@ -141,7 +106,7 @@ class DeviceScanRepositoryTest {
             emit(BleAdvertise(mac = "AA:BB:CC:DD:EE:03", name = "Tag C", rssi = -60))
             awaitCancellation()
         }
-        val repo = DeviceScanRepositoryImpl(source, backgroundScope, time, FakeScanConfigStore(), RssiRecorder())
+        val repo = DeviceScanRepositoryImpl(source, backgroundScope, time, FakeScanConfigStore())
 
         repo.startScan()
         runCurrent()

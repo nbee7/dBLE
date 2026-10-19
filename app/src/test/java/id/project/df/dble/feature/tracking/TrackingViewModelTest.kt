@@ -1,22 +1,16 @@
 package id.project.df.dble.feature.tracking
 
-import android.net.Uri
 import app.cash.turbine.test
 import id.project.df.dble.app.navigation.TrackingRoute
 import id.project.df.dble.core.common.mvi.MainDispatcherRule
 import id.project.df.dble.core.common.time.TimeProvider
 import id.project.df.dble.core.data.permission.PermissionCheck
-import id.project.df.dble.core.data.scan.RssiExporter
-import id.project.df.dble.core.data.scan.RssiRecorder
-import id.project.df.dble.core.data.scan.RssiSample
 import id.project.df.dble.core.data.scan.ScanController
 import id.project.df.dble.core.data.scan.ScanState
 import id.project.df.dble.core.data.scan.StopReason
 import id.project.df.dble.core.domain.ObserveTargetUseCase
 import id.project.df.dble.core.model.ProximityZone
 import id.project.df.dble.core.model.TrackedTarget
-import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
@@ -28,7 +22,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Rule
 import org.junit.Test
-import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TrackingViewModelTest {
@@ -45,49 +38,23 @@ class TrackingViewModelTest {
     private val observeTarget: ObserveTargetUseCase = mockk()
     private val scanController: ScanController = mockk()
     private val scanState = MutableStateFlow<ScanState>(ScanState.Scanning)
-    private val recorder = RssiRecorder()
-    private val exporter: RssiExporter = mockk()
-    private val uri: Uri = mockk()
 
     private fun viewModel(): TrackingViewModel {
         every { observeTarget(mac) } returns targets
         every { scanController.scanState } returns scanState
         every { scanController.requestScan() } returns PermissionCheck.Granted
-        return TrackingViewModel(TrackingRoute(mac), observeTarget, time, scanController, recorder, exporter)
+        return TrackingViewModel(TrackingRoute(mac), observeTarget, time, scanController)
     }
 
-    private fun target(
-        rssi: Int,
-        isLost: Boolean = false,
-        smoothed: Double = rssi.toDouble(),
-        kalman: Double = rssi.toDouble(),
-        adKalman: Double = rssi.toDouble(),
-    ) = TrackedTarget(
+    private fun target(rssi: Int, isLost: Boolean = false) = TrackedTarget(
         mac = mac,
         name = "Tag",
         rawRssi = rssi,
-        smoothedRssi = smoothed,
+        smoothedRssi = rssi.toDouble(),
         zone = ProximityZone.KUAT,
         distanceMeters = 3.0,
         isLost = isLost,
-        kalmanRssi = kalman,
-        adKalmanRssi = adKalman,
     )
-
-    @Test
-    fun given_TargetDenganEmaDanKalman_when_Collect_then_PointDanStateMembawaKeduanya() = runTest {
-        val vm = viewModel()
-
-        vm.uiState.test {
-            skipItems(1)
-            now = 5_000
-            targets.emit(target(-50, smoothed = -52.0, kalman = -51.0, adKalman = -50.5))
-            val state = awaitItem()
-            assertEquals(RssiPoint(5_000, -50, -52.0, -51.0, -50.5), state.points.last())
-            assertEquals(-51.0, state.kalmanRssi!!, 1e-9)
-            assertEquals(-50.5, state.adKalmanRssi!!, 1e-9)
-        }
-    }
 
     @Test
     fun given_MacDariRoute_when_Init_then_StateBerisiMac() = runTest {
@@ -226,79 +193,9 @@ class TrackingViewModelTest {
         verify(exactly = 2) { scanController.requestScan() }
     }
 
-    private fun sample(t: Long = 0, sampleMac: String = mac) =
-        RssiSample(tMillis = t, mac = sampleMac, rawRssi = -60, emaRssi = -60.0, kalmanRssi = -60.0)
-
-    @Test
-    fun given_Init_when_Create_then_RecorderMelacakMacRoute() = runTest {
-        viewModel()
-
-        recorder.onSample(sample())
-
-        assertEquals(1, recorder.snapshot().size)
-    }
-
-    @Test
-    fun given_RecorderMenerimaSampel_when_Collect_then_StateSampleCountUpdate() = runTest {
-        val vm = viewModel()
-
-        vm.uiState.test {
-            skipItems(1)
-            recorder.onSample(sample())
-            assertEquals(1, awaitItem().sampleCount)
-        }
-    }
-
-    @Test
-    fun given_AdaSampel_when_ExportClicked_then_EffectShareFileDenganUri() = runTest {
-        val vm = viewModel()
-        recorder.onSample(sample())
-        coEvery { exporter.export(mac, any(), any()) } returns uri
-
-        vm.effect.test {
-            vm.sendIntent(Intent.ExportClicked)
-            assertEquals(Effect.ShareFile(uri), awaitItem())
-        }
-        assertFalse(vm.uiState.value.isExporting)
-    }
-
-    @Test
-    fun given_BufferKosong_when_ExportClicked_then_ExporterTidakDipanggil() = runTest {
-        val vm = viewModel()
-
-        vm.effect.test {
-            vm.sendIntent(Intent.ExportClicked)
-            expectNoEvents()
-        }
-        coVerify(exactly = 0) { exporter.export(any(), any(), any()) }
-    }
-
-    @Test
-    fun given_ExporterGagal_when_ExportClicked_then_EffectExportFailedDanIsExportingFalse() = runTest {
-        val vm = viewModel()
-        recorder.onSample(sample())
-        coEvery { exporter.export(any(), any(), any()) } throws IOException("disk penuh")
-
-        vm.effect.test {
-            vm.sendIntent(Intent.ExportClicked)
-            assertEquals(Effect.ExportFailed, awaitItem())
-        }
-        assertFalse(vm.uiState.value.isExporting)
-    }
-
-    @Test
-    fun given_ViewModelCleared_when_OnCleared_then_RecorderDilepas() = runTest {
-        val vm = viewModel()
-
-        vm.onCleared()
-        recorder.onSample(sample())
-
-        assertEquals(0, recorder.snapshot().size)
-    }
-
     private fun viewModelWithoutDefaultScan(): TrackingViewModel {
         every { observeTarget(mac) } returns targets
         every { scanController.scanState } returns scanState
-        return TrackingViewModel(TrackingRoute(mac), observeTarget, time, scanController, recorder, exporter)
+        return TrackingViewModel(TrackingRoute(mac), observeTarget, time, scanController)
     }
 }

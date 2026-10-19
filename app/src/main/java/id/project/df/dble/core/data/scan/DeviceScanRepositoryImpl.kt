@@ -29,7 +29,6 @@ class DeviceScanRepositoryImpl @Inject constructor(
     @ApplicationScope private val scope: CoroutineScope,
     private val time: TimeProvider,
     private val configStore: ScanConfigStore,
-    private val recorder: RssiRecorder,
 ) : DeviceScanRepository {
 
     private val _devices = MutableStateFlow<List<TrackedDevice>>(emptyList())
@@ -77,12 +76,8 @@ class DeviceScanRepositoryImpl @Inject constructor(
     }
 
     private suspend fun onAdvertise(ad: BleAdvertise) = mutex.withLock {
-        val now = time.nowMillis()
-        tracked = ScanAggregation.upsert(tracked, ad, now)
-        tracked[ad.mac]?.let {
-            recorder.onSample(RssiSample(now, it.mac, it.rawRssi, it.smoothedRssi, it.kalmanRssi, it.adKalmanRssi))
-        }
-        tracked = ScanAggregation.prune(tracked, now)
+        tracked = ScanAggregation.upsert(tracked, ad, time.nowMillis())
+        tracked = ScanAggregation.prune(tracked, time.nowMillis())
         publish()
     }
 

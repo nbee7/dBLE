@@ -47,35 +47,11 @@ fun beepIntervalMsFor(zone: ProximityZone): Long? = when (zone) {
     else -> null
 }
 
-const val EMA_ALPHA = 0.3
-const val KALMAN_Q = 0.5
 const val KALMAN_R = 16.0
 const val ADAPTIVE_KALMAN_Q_MIN = 0.05
 const val ADAPTIVE_KALMAN_Q_MAX = 4.0
 const val ADAPTIVE_KALMAN_THRESHOLD_DB = 6.0
 const val ADAPTIVE_KALMAN_BETA = 0.2
-
-fun ema(previous: Double?, current: Int, alpha: Double = EMA_ALPHA): Double =
-    previous?.let { alpha * current + (1 - alpha) * it } ?: current.toDouble()
-
-// need new file
-data class KalmanState(val estimate: Double, val variance: Double)
-
-fun kalman(
-    previous: KalmanState?,
-    rssi: Int,
-    dtMillis: Long,
-    q: Double = KALMAN_Q,
-    r: Double = KALMAN_R,
-): KalmanState {
-    if (previous == null) return KalmanState(rssi.toDouble(), r)
-    val predicted = previous.variance + q * dtMillis.coerceAtLeast(0) / 1_000.0
-    val gain = predicted / (predicted + r)
-    return KalmanState(
-        estimate = previous.estimate + gain * (rssi - previous.estimate),
-        variance = (1 - gain) * predicted,
-    )
-}
 
 // need new file
 data class AdaptiveKalmanState(val estimate: Double, val variance: Double, val innovationMean: Double)
@@ -114,11 +90,8 @@ data class TrackedDevice(
     val zone: ProximityZone,
     val distanceMeters: Double?,
     val lastSeenMillis: Long,
-    val kalmanRssi: Double = smoothedRssi,
-    val kalmanVariance: Double = KALMAN_R,
-    val adKalmanRssi: Double = smoothedRssi,
-    val adKalmanVariance: Double = KALMAN_R,
-    val adKalmanInnovation: Double = 0.0,
+    val filterVariance: Double = KALMAN_R,
+    val filterInnovation: Double = 0.0,
 )
 
 data class DetectedDevice(
@@ -138,6 +111,4 @@ data class TrackedTarget(
     val zone: ProximityZone,
     val distanceMeters: Double?,
     val isLost: Boolean,
-    val kalmanRssi: Double = smoothedRssi,
-    val adKalmanRssi: Double = smoothedRssi,
 )

@@ -9,15 +9,12 @@ import id.project.df.dble.app.navigation.TrackingRoute
 import id.project.df.dble.core.common.mvi.BaseViewModel
 import id.project.df.dble.core.common.time.TimeProvider
 import id.project.df.dble.core.data.permission.PermissionCheck
-import id.project.df.dble.core.data.scan.RssiExporter
-import id.project.df.dble.core.data.scan.RssiRecorder
 import id.project.df.dble.core.data.scan.ScanController
 import id.project.df.dble.core.data.scan.ScanState
 import id.project.df.dble.core.data.scan.StopReason
 import id.project.df.dble.core.domain.ObserveTargetUseCase
 import id.project.df.dble.core.model.TrackedTarget
 import kotlinx.collections.immutable.toPersistentList
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -27,8 +24,6 @@ class TrackingViewModel @AssistedInject constructor(
     observeTarget: ObserveTargetUseCase,
     private val time: TimeProvider,
     private val scanController: ScanController,
-    private val recorder: RssiRecorder,
-    private val exporter: RssiExporter,
 ) : BaseViewModel<State, Intent, Effect>(State(mac = route.mac)) {
 
     @AssistedFactory
@@ -37,10 +32,6 @@ class TrackingViewModel @AssistedInject constructor(
     }
 
     init {
-        recorder.track(route.mac)
-        viewModelScope.launch {
-            recorder.sampleCount.collect { count -> updateState { copy(sampleCount = count) } }
-        }
         viewModelScope.launch {
             observeTarget(route.mac).collect(::onTarget)
         }
@@ -66,30 +57,7 @@ class TrackingViewModel @AssistedInject constructor(
             }
             Intent.PermissionsGranted -> ensureScanning()
             Intent.ScreenResumed -> retryAfterSettingsFix()
-            Intent.ExportClicked -> export()
         }
-    }
-
-    private suspend fun export() {
-        val samples = recorder.snapshot()
-        if (samples.isEmpty() || uiState.value.isExporting) return
-        updateState { copy(isExporting = true) }
-        try {
-            val uri = exporter.export(route.mac, uiState.value.name, samples)
-            sendEffect(Effect.ShareFile(uri))
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            Timber.w(e, "[EXPORT][FAIL] samples=%d", samples.size)
-            sendEffect(Effect.ExportFailed)
-        } finally {
-            updateState { copy(isExporting = false) }
-        }
-    }
-
-    public override fun onCleared() {
-        recorder.release(route.mac)
-        super.onCleared()
     }
 
     private fun ensureScanning() {
@@ -124,12 +92,10 @@ class TrackingViewModel @AssistedInject constructor(
                 name = target.name,
                 rawRssi = target.rawRssi,
                 smoothedRssi = target.smoothedRssi,
-                kalmanRssi = target.kalmanRssi,
-                adKalmanRssi = target.adKalmanRssi,
                 zone = target.zone,
                 distanceMeters = target.distanceMeters,
                 isLost = target.isLost,
-                points = (if (target.isLost) kept else kept + RssiPoint(now, target.rawRssi, target.smoothedRssi, target.kalmanRssi, target.adKalmanRssi)).toPersistentList(),
+                points = (if (target.isLost) kept else kept + RssiPoint(now, target.rawRssi)).toPersistentList(),
             )
         }
     }

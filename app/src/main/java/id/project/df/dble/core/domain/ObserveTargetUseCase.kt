@@ -37,8 +37,6 @@ class ObserveTargetUseCase @Inject constructor(
                         zone = device.zone,
                         distanceMeters = device.distanceMeters,
                         isLost = lost,
-                        kalmanRssi = device.kalmanRssi,
-                        adKalmanRssi = device.adKalmanRssi,
                     ),
                 )
             }
