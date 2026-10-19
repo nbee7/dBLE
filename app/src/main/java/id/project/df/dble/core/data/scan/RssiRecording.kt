@@ -1,13 +1,21 @@
 package id.project.df.dble.core.data.scan
 
+import android.content.Context
+import android.net.Uri
+import android.os.Build
+import androidx.core.content.FileProvider
+import dagger.hilt.android.qualifiers.ApplicationContext
 import id.project.df.dble.core.model.EMA_ALPHA
 import id.project.df.dble.core.model.KALMAN_Q
 import id.project.df.dble.core.model.KALMAN_R
 import id.project.df.dble.core.model.distanceMetersFor
 import id.project.df.dble.core.model.zoneFor
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -129,4 +137,33 @@ object RssiCsv {
     private fun distance(rssi: Int) = distanceMetersFor(rssi)?.let(::number).orEmpty()
 
     private fun singleLine(text: String) = text.replace('\r', ' ').replace('\n', ' ')
+}
+
+// need new file
+interface RssiExporter {
+    suspend fun export(mac: String, name: String?, samples: List<RssiSample>): Uri
+}
+
+// need new file
+class FileRssiExporter @Inject constructor(
+    @ApplicationContext private val context: Context,
+) : RssiExporter {
+
+    override suspend fun export(mac: String, name: String?, samples: List<RssiSample>): Uri =
+        withContext(Dispatchers.IO) {
+            require(samples.isNotEmpty()) { "Tidak ada sampel untuk diekspor" }
+            val dir = File(context.cacheDir, "exports").apply { mkdirs() }
+            dir.listFiles { file -> file.extension == "csv" }?.forEach { it.delete() }
+            val meta = ExportMeta(
+                mac = mac,
+                name = name,
+                deviceModel = Build.MODEL,
+                appVersion = context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty(),
+                startedAtMillis = samples.first().tMillis,
+                endedAtMillis = samples.last().tMillis,
+            )
+            val file = File(dir, RssiCsv.fileName(mac, meta.startedAtMillis))
+            file.writeText(RssiCsv.build(meta, samples), Charsets.UTF_8)
+            FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+        }
 }
