@@ -31,13 +31,6 @@ class ProximityMapperTest {
     }
 
     @Test
-    fun should_EmaMulaiDanMenghaluskan_When_Deriass() {
-        assertEquals(-50.0, ema(null, -50), 1e-9)
-        // 0.3×(−45) + 0.7×(−50)
-        assertEquals(-48.5, ema(-50.0, -45), 1e-9)
-    }
-
-    @Test
     fun should_BeepDanFormat_When_ZonaDiberikan() {
         assertEquals(150L, beepIntervalMsFor(ProximityZone.SANGAT_KUAT))
         assertEquals(600L, beepIntervalMsFor(ProximityZone.KUAT))

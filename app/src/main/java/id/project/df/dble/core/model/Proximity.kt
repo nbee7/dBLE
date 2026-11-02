@@ -45,9 +45,6 @@ fun beepIntervalMsFor(zone: ProximityZone): Long? = when (zone) {
     else -> null
 }
 
-fun ema(previous: Double?, current: Int, alpha: Double = 0.3): Double =
-    previous?.let { alpha * current + (1 - alpha) * it } ?: current.toDouble()
-
 data class BleAdvertise(val mac: String, val name: String?, val rssi: Int)
 
 data class TrackedDevice(
@@ -58,6 +55,8 @@ data class TrackedDevice(
     val zone: ProximityZone,
     val distanceMeters: Double?,
     val lastSeenMillis: Long,
+    val filterVariance: Double = KALMAN_R,
+    val filterInnovation: Double = 0.0,
 )
 
 data class DetectedDevice(
