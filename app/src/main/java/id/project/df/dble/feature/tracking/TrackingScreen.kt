@@ -298,7 +298,7 @@ fun RssiLineChart(points: ImmutableList<RssiPoint>, modifier: Modifier = Modifie
         Canvas(modifier = Modifier.fillMaxWidth().weight(1f)) {
             val gutter = YAxisWidth.toPx()
             val plotWidth = size.width - gutter
-            listOf(-30f, -50f, -70f, -90f).forEach { level ->
+            listOf(-59f, -70f, -78f, -90f).forEach { level ->
                 val y = yFor(level, size.height)
                 drawLine(gridColor, Offset(gutter, y), Offset(size.width, y), strokeWidth = 1.dp.toPx())
                 val label = textMeasurer.measure("−${-level.toInt()}", labelStyle)
@@ -350,9 +350,9 @@ fun BeepEffect(zone: ProximityZone?, isLost: Boolean, beeper: ProximityBeeper) {
 private fun zoneRangeLabel(zone: ProximityZone): String = when (zone) {
     ProximityZone.SANGAT_KUAT -> "Sangat Dekat (<1 m)"
     ProximityZone.KUAT -> "Dekat (1–3 m)"
-    ProximityZone.CUKUP -> "Cukup (3–10 m)"
-    ProximityZone.LEMAH -> "Lemah (10–20 m)"
-    ProximityZone.SANGAT_LEMAH -> "Sangat Lemah (>20 m)"
+    ProximityZone.CUKUP -> "Cukup (3–6 m)"
+    ProximityZone.LEMAH -> "Lemah (6–12 m)"
+    ProximityZone.SANGAT_LEMAH -> "Sangat Lemah (12–20 m)"
     ProximityZone.LOST -> "Di luar jangkauan"
 }
 

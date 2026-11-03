@@ -2,32 +2,63 @@ package id.project.df.dble.core.model
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
+import kotlin.math.pow
 
 class ProximityMapperTest {
 
     @Test
     fun should_ZonaTepat_When_BatasPersis() {
         mapOf(
-            -30 to ProximityZone.SANGAT_KUAT, -31 to ProximityZone.KUAT, -50 to ProximityZone.KUAT,
-            -51 to ProximityZone.CUKUP, -70 to ProximityZone.CUKUP, -71 to ProximityZone.LEMAH,
-            -80 to ProximityZone.LEMAH, -81 to ProximityZone.SANGAT_LEMAH, -90 to ProximityZone.SANGAT_LEMAH,
+            -59 to ProximityZone.SANGAT_KUAT, -60 to ProximityZone.KUAT, -70 to ProximityZone.KUAT,
+            -71 to ProximityZone.CUKUP, -78 to ProximityZone.CUKUP, -79 to ProximityZone.LEMAH,
+            -85 to ProximityZone.LEMAH, -86 to ProximityZone.SANGAT_LEMAH, -90 to ProximityZone.SANGAT_LEMAH,
             -91 to ProximityZone.LOST, -100 to ProximityZone.LOST,
         ).forEach { (rssi, zone) -> assertEquals("rssi=$rssi", zone, zoneFor(rssi)) }
     }
 
     @Test
-    fun should_JarakJangkarDanInterpolasi_When_RssiDiberikan() {
-        assertEquals(1.0, requireNotNull(distanceMetersFor(-30)), 1e-9)
-        assertEquals(3.0, requireNotNull(distanceMetersFor(-50)), 1e-9)
-        assertEquals(10.0, requireNotNull(distanceMetersFor(-70)), 1e-9)
-        assertEquals(20.0, requireNotNull(distanceMetersFor(-80)), 1e-9)
-        // antara −70..−80: 10 + (20−10)×(3/10)
-        assertEquals(13.0, requireNotNull(distanceMetersFor(-73)), 1e-9)
-        // jangkar bawah rentang Sangat Lemah (−80..−90 → 20–25 m)
-        assertEquals(25.0, requireNotNull(distanceMetersFor(-90)), 1e-9)
-        assertEquals(0.5, requireNotNull(distanceMetersFor(-20)), 1e-9)
+    fun should_BatasZonaSesuaiJarak_When_DipetakanDenganModelJarak() {
+        // batas zona = ~1 m, ~3 m, ~6 m, ~12 m menurut model log-distance
+        mapOf(-59 to 1.0, -70 to 3.0, -78 to 6.0, -85 to 12.0).forEach { (rssi, meters) ->
+            val actual = requireNotNull(distanceMetersFor(rssi))
+            assertEquals("rssi=$rssi", meters, actual, meters * 0.15)
+        }
+    }
+
+    @Test
+    fun should_BeepHanyaDiDalam3Meter_When_ZonaSangatKuatAtauKuat() {
+        assertEquals(150L, beepIntervalMsFor(zoneFor(-55)))
+        assertEquals(600L, beepIntervalMsFor(zoneFor(-70)))
+        assertNull(beepIntervalMsFor(zoneFor(-71)))
+    }
+
+    @Test
+    fun should_JarakLogDistance_When_RssiDiberikan() {
+        // A = -59 dBm di 1 m, n = 2,4: d = 10^((A - rssi) / (10 n))
+        assertEquals(1.0, requireNotNull(distanceMetersFor(-59)), 1e-9)
+        assertEquals(10.0, requireNotNull(distanceMetersFor(-83)), 1e-9)
+        assertEquals(10.0.pow(14.0 / 24.0), requireNotNull(distanceMetersFor(-73)), 1e-9)
+        assertEquals(10.0.pow(31.0 / 24.0), requireNotNull(distanceMetersFor(-90)), 1e-9)
+    }
+
+    @Test
+    fun should_JarakMinimal_When_RssiSangatKuat() {
+        assertEquals(0.1, requireNotNull(distanceMetersFor(-35)), 1e-9)
+        assertEquals(0.1, requireNotNull(distanceMetersFor(-20)), 1e-9)
+    }
+
+    @Test
+    fun should_JarakNull_When_RssiDiBawahMinus90() {
+        assertNull(distanceMetersFor(-91))
         assertNull(distanceMetersFor(-95))
+    }
+
+    @Test
+    fun should_JarakNaikMonoton_When_RssiMelemah() {
+        val distances = (-30 downTo -90).map { requireNotNull(distanceMetersFor(it)) }
+        distances.zipWithNext().forEach { (near, far) -> assertTrue("near=$near far=$far", far >= near) }
     }
 
     @Test
@@ -38,7 +69,6 @@ class ProximityMapperTest {
         assertNull(beepIntervalMsFor(ProximityZone.LOST))
         assertEquals("~2,4 m", formatDistance(2.44, ProximityZone.KUAT))
         assertEquals("<1 m", formatDistance(0.5, ProximityZone.SANGAT_KUAT))
-        assertEquals(">20 m", formatDistance(22.0, ProximityZone.SANGAT_LEMAH))
         assertEquals("—", formatDistance(null, ProximityZone.LOST))
     }
 }
