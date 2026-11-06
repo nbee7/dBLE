@@ -80,6 +80,6 @@ class FilterDevicesUseCaseTest {
         )
 
         assertEquals(listOf(terkuat, sedang, terlemah), result)
-        assertEquals(ProximityZone.KUAT, result.first().zone)
+        assertEquals(ProximityZone.SANGAT_KUAT, result.first().zone)
     }
 }

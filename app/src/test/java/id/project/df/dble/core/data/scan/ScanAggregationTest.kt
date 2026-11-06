@@ -21,8 +21,8 @@ class ScanAggregationTest {
         assertEquals(0.0, device.filterInnovation, 1e-9)
         assertEquals(-60, device.rawRssi)
         assertEquals("Tag A", device.name)
-        assertEquals(ProximityZone.CUKUP, device.zone)
-        assertEquals(6.5, requireNotNull(device.distanceMeters), 1e-9)
+        assertEquals(ProximityZone.KUAT, device.zone)
+        assertEquals(Math.pow(10.0, 1.0 / 24.0), requireNotNull(device.distanceMeters), 1e-9)
         assertEquals(1_000L, device.lastSeenMillis)
     }
 
@@ -47,7 +47,7 @@ class ScanAggregationTest {
         assertEquals(-2.0, device.filterInnovation, 1e-9)
         assertEquals(-70, device.rawRssi)
         assertEquals("Tag A", device.name)
-        assertEquals(ProximityZone.CUKUP, device.zone)
+        assertEquals(ProximityZone.KUAT, device.zone)
         assertEquals(1_500L, device.lastSeenMillis)
         assertEquals(1, result.size)
     }
